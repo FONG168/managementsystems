@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://your-domain.vercel.app/sitemap.xml
+
+# Specific rules
+Disallow: /api/
+Disallow: /_redirects
+Disallow: /.env*
+Disallow: /debug.js

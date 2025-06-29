@@ -1,0 +1,48 @@
+{
+  "name": "employee-management-spa",
+  "version": "1.0.0",
+  "description": "Fully responsive SPA for employee activity management and earnings visualization",
+  "main": "index.html",
+  "homepage": ".",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static files ready for deployment'",
+    "start": "vercel dev",
+    "deploy": "vercel --prod",
+    "preview": "vercel",
+    "lint": "echo 'Linting not configured'",
+    "test": "echo 'No tests specified'",
+    "deploy-check": "node deploy-check.js",
+    "prepare-deploy": "npm run deploy-check && echo 'Ready for deployment!'"
+  },
+  "keywords": [
+    "employee",
+    "management",
+    "spa",
+    "analytics",
+    "responsive"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "vercel": "^28.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/employee-management-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/employee-management-system/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}

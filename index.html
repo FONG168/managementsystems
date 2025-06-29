@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Employee Activity Management System - Responsive SPA for managing employee activities and earnings">
+    <meta name="keywords" content="employee management, activity tracking, SPA, responsive design">
+    <meta name="author" content="Employee Management System">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="Employee Activity Manager">
+    <meta property="og:description" content="Comprehensive employee activity management and earnings visualization">
+    <meta property="og:type" content="website">
+    
+    <title>Employee Activity Manager</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://unpkg.com">
+    
+    <!-- CSS & JavaScript -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .scroll-freeze {
+            position: sticky;
+            background: inherit;
+            z-index: 10;
+        }
+        .freeze-top { top: 0; }
+        .freeze-left { left: 0; }
+        .freeze-both { top: 0; left: 0; z-index: 20; }
+    </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+    <div id="app" class="h-full flex flex-col">
+        <!-- Loading Screen -->
+        <div id="loading" class="fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+                <p class="mt-4 text-gray-600 dark:text-gray-400">Loading Employee Manager...</p>
+            </div>
+        </div>
+
+        <!-- Navigation Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo & Title -->
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                            <h1 class="text-xl font-bold text-primary-600 dark:text-primary-400">
+                                📊 Employee Manager
+                            </h1>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Navigation -->
+                    <nav class="hidden md:flex space-x-8">
+                        <a href="#/staff" class="nav-link px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                            👥 Staff
+                        </a>
+                        <a href="#/summary" class="nav-link px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                            📈 Summary
+                        </a>
+                        <a href="#/logs" class="nav-link px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                            📝 Daily Logs
+                        </a>
+                    </nav>
+
+                    <!-- Theme Toggle & Data Management & Mobile Menu -->
+                    <div class="flex items-center space-x-2">
+                        <!-- Database Status & Config -->
+                        <button id="database-config-btn" onclick="window.databaseConfig?.show()" class="hidden sm:flex items-center space-x-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-gray-100 dark:hover:bg-gray-700" title="Database Status (Ctrl+Shift+D)">
+                            <span id="database-status" class="text-gray-600 dark:text-gray-400">🟡 Local</span>
+                        </button>
+                        
+                        <!-- Data Management Buttons -->
+                        <div class="hidden sm:flex items-center space-x-2">
+                            <button id="export-data-btn" class="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center space-x-1" title="Export Data">
+                                <span>💾</span>
+                                <span class="hidden lg:inline">Export</span>
+                            </button>
+                            <button id="import-data-btn" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center space-x-1" title="Import Data">
+                                <span>📁</span>
+                                <span class="hidden lg:inline">Import</span>
+                            </button>
+                            <input type="file" id="import-file-input" accept=".json" class="hidden">
+                        </div>
+                        
+                        <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                            <span id="theme-icon">🌙</span>
+                        </button>
+                        
+                        <!-- Mobile menu button -->
+                        <button id="mobile-menu-button" class="md:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <span class="sr-only">Open menu</span>
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Mobile Navigation -->
+                <div id="mobile-menu" class="md:hidden hidden pb-4">
+                    <div class="space-y-1">
+                        <a href="#/staff" class="nav-link block px-3 py-2 rounded-md text-base font-medium transition-colors">
+                            👥 Staff Management
+                        </a>
+                        <a href="#/summary" class="nav-link block px-3 py-2 rounded-md text-base font-medium transition-colors">
+                            📈 Performance Summary
+                        </a>
+                        <a href="#/logs" class="nav-link block px-3 py-2 rounded-md text-base font-medium transition-colors">
+                            📝 Daily Logs
+                        </a>
+                        
+                        <!-- Mobile Data Management -->
+                        <div class="pt-2 border-t border-gray-200 dark:border-gray-700 mt-2">
+                            <!-- <button onclick="window.databaseConfig.show()" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                🗄️ Database Config
+                            </button> -->
+                            <button id="export-data-mobile" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                💾 Export Data
+                            </button>
+                            <button id="import-data-mobile" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                📁 Import Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-1 overflow-auto">
+            <!-- Page content will be injected here -->
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2">
+            <!-- Toast messages will appear here -->
+        </div>
+
+        <!-- Data Entry Modal -->
+        <div id="data-entry-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Enter Activity Data
+                        </h3>
+                        <button onclick="window.logsManager?.closeDataModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4 space-y-2">
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            <span class="font-medium">Staff:</span>
+                            <span id="modal-staff-name" class="ml-1 text-gray-900 dark:text-white"></span>
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            <span class="font-medium">Activity:</span>
+                            <span id="modal-activity-name" class="ml-1 text-gray-900 dark:text-white"></span>
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            <span class="font-medium">Date:</span>
+                            <span id="modal-date" class="ml-1 text-gray-900 dark:text-white"></span>
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            <span class="font-medium">Current Value:</span>
+                            <span id="current-value" class="ml-1 font-mono text-gray-900 dark:text-white"></span>
+                        </div>
+                    </div>
+
+                    <form id="data-entry-form" onsubmit="window.logsManager?.saveDataFromModal(); return false;">
+                        <div class="mb-4">
+                            <label for="data-entry-value" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Enter Value:
+                            </label>
+                            <input 
+                                type="number" 
+                                id="data-entry-value" 
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-white"
+                                min="0"
+                                step="1"
+                                placeholder="0"
+                            >
+                        </div>
+
+                        <!-- Quick Entry Buttons -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                Quick Entry:
+                            </label>
+                            <div class="grid grid-cols-4 gap-2">
+                                <button type="button" onclick="document.getElementById('data-entry-value').value = '0'" 
+                                        class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded">
+                                    0
+                                </button>
+                                <button type="button" onclick="document.getElementById('data-entry-value').value = '1'" 
+                                        class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded">
+                                    1
+                                </button>
+                                <button type="button" onclick="document.getElementById('data-entry-value').value = '5'" 
+                                        class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded">
+                                    5
+                                </button>
+                                <button type="button" onclick="document.getElementById('data-entry-value').value = '10'" 
+                                        class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded">
+                                    10
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="window.logsManager?.closeDataModal()" 
+                                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                Cancel
+                            </button>
+                            <button type="button" onclick="document.getElementById('data-entry-value').value = ''" 
+                                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-yellow-50 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-600 rounded-md hover:bg-yellow-100 dark:hover:bg-yellow-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                Clear
+                            </button>
+                            <button type="submit" 
+                                    class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                                Save
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="src/app.js" type="module"></script>
+</body>
+</html>

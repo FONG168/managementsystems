@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Modal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <h1 class="text-2xl font-bold mb-4">Test Staff Modal</h1>
+        
+        <button onclick="testModal()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            Test Modal
+        </button>
+        
+        <button onclick="testGlobalFunction()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 ml-4">
+            Test Global Function
+        </button>
+        
+        <!-- Modal -->
+        <div id="test-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="p-6">
+                    <h3 class="text-xl font-semibold mb-4">Test Modal</h3>
+                    <p>This is a test modal to check if modal functionality works.</p>
+                    <button onclick="closeTestModal()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testModal() {
+            console.log('testModal called');
+            document.getElementById('test-modal').classList.remove('hidden');
+        }
+        
+        function closeTestModal() {
+            console.log('closeTestModal called');
+            document.getElementById('test-modal').classList.add('hidden');
+        }
+        
+        function testGlobalFunction() {
+            console.log('Testing global functions:');
+            console.log('window.showStaffDetails:', typeof window.showStaffDetails);
+            console.log('window.closeStaffModal:', typeof window.closeStaffModal);
+            console.log('window.summaryManager:', typeof window.summaryManager);
+        }
+    </script>
+</body>
+</html>
