@@ -32,10 +32,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/employee-management-system.git"
+    "url": "git+https://github.com/Jannelee168/employee-management-system.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/employee-management-system/issues"
+    "url": "https://github.com/Jannelee168/employee-management-system/issues"
   },
   "engines": {
     "node": ">=16.0.0"
