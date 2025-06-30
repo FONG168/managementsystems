@@ -66,8 +66,8 @@ export class StaffManager {
 
                 <!-- Staff Table -->
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <!-- Desktop Table View -->
-                    <div class="hidden md:block overflow-x-auto">
+                    <!-- Table View -->
+                    <div class="overflow-x-auto">
                         <table id="staff-table" class="w-full min-w-full">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
@@ -99,11 +99,6 @@ export class StaffManager {
                                 <!-- Staff rows will be inserted here -->
                             </tbody>
                         </table>
-                    </div>
-
-                    <!-- Mobile Card View -->
-                    <div class="md:hidden" id="staff-mobile-view">
-                        <!-- Mobile staff cards will be populated here -->
                     </div>
 
                     <!-- Empty State -->
@@ -263,25 +258,18 @@ export class StaffManager {
     renderStaffTable() {
         const staff = this.getFilteredAndSortedStaff();
         const tbody = document.getElementById('staff-table-body');
-        const mobileView = document.getElementById('staff-mobile-view');
         const emptyState = document.getElementById('empty-state');
 
         if (staff.length === 0) {
             tbody.innerHTML = '';
-            mobileView.innerHTML = '';
             emptyState.classList.remove('hidden');
             document.getElementById('staff-table').parentElement.style.display = 'none';
-            mobileView.style.display = 'none';
         } else {
             emptyState.classList.add('hidden');
             document.getElementById('staff-table').parentElement.style.display = 'block';
-            mobileView.style.display = 'block';
             
-            // Render desktop table
+            // Render table
             tbody.innerHTML = staff.map(member => this.createStaffRow(member)).join('');
-            
-            // Render mobile cards
-            mobileView.innerHTML = staff.map(member => this.createStaffCard(member)).join('');
         }
 
         this.updateSortIcons();
@@ -325,37 +313,6 @@ export class StaffManager {
                     </div>
                 </td>
             </tr>
-        `;
-    }
-
-    createStaffCard(staff) {
-        return `
-            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-2 shadow-sm">
-                <div class="flex justify-between items-center">
-                    <div class="flex-1">
-                        <div class="flex items-center space-x-2">
-                            <h3 class="font-medium text-gray-900 dark:text-white text-sm">${staff.name}</h3>
-                            <span class="text-xs text-gray-500 dark:text-gray-400">ID: ${staff.id}</span>
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${staff.active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'}">
-                                ${staff.active ? 'Active' : 'Inactive'}
-                            </span>
-                        </div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            ${staff.department} • ${staff.position}
-                        </div>
-                    </div>
-                    <div class="flex space-x-1 ml-2">
-                        <button onclick="window.staffManager.openStaffModal('${staff.id}')" 
-                                class="bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded text-xs touch-target" title="Edit">
-                            ✏️
-                        </button>
-                        <button onclick="window.staffManager.deleteStaff('${staff.id}')" 
-                                class="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded text-xs touch-target" title="Delete">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-            </div>
         `;
     }
 
