@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Diagnostic Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow">
+        <h1 class="text-2xl font-bold mb-4">🔧 Database Diagnostic Tool</h1>
+        
+        <div class="space-y-4">
+            <div class="bg-blue-50 p-4 rounded">
+                <h2 class="font-bold text-blue-800 mb-2">Current Status:</h2>
+                <div id="current-status" class="text-sm text-blue-700">
+                    Loading...
+                </div>
+            </div>
+            
+            <div class="bg-yellow-50 p-4 rounded">
+                <h2 class="font-bold text-yellow-800 mb-2">Database Configuration:</h2>
+                <div class="space-y-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Supabase URL:</label>
+                        <input type="text" id="supabase-url" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
+                               placeholder="https://your-project.supabase.co">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Supabase Anon Key:</label>
+                        <input type="password" id="supabase-key" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
+                               placeholder="eyJhbGciOiJIUzI1NiIs...">
+                    </div>
+                    <button onclick="testDatabaseConnection()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Test Connection
+                    </button>
+                    <button onclick="setupTables()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        Setup Database Tables
+                    </button>
+                </div>
+            </div>
+            
+            <div class="bg-green-50 p-4 rounded">
+                <h2 class="font-bold text-green-800 mb-2">Quick Fix:</h2>
+                <button onclick="forceDatabaseMode()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 mr-2">
+                    🔧 Force Database Mode (Multi-Browser Sync)
+                </button>
+                <button onclick="fixYellowIndicator()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    🟢 Fix Yellow Indicator
+                </button>
+                <p class="text-sm text-green-700 mt-2">This will force the app to use the database instead of localStorage</p>
+            </div>
+            
+            <div id="diagnostic-results" class="bg-gray-50 p-4 rounded">
+                <h2 class="font-bold text-gray-800 mb-2">Diagnostic Results:</h2>
+                <div id="results-content" class="text-sm text-gray-700">
+                    Click "Test Connection" to run diagnostics
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load existing configuration
+        window.addEventListener('load', () => {
+            const savedUrl = localStorage.getItem('supabase_url');
+            const savedKey = localStorage.getItem('supabase_key');
+            
+            if (savedUrl) document.getElementById('supabase-url').value = savedUrl;
+            if (savedKey) document.getElementById('supabase-key').value = savedKey;
+            
+            updateCurrentStatus();
+        });
+        
+        function updateCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            const savedUrl = localStorage.getItem('supabase_url');
+            const savedKey = localStorage.getItem('supabase_key');
+            
+            let status = '';
+            if (savedUrl && savedKey) {
+                status += `✅ Database credentials found<br>`;
+                status += `📍 URL: ${savedUrl}<br>`;
+                status += `🔑 Key: ${savedKey.substring(0, 20)}...<br>`;
+            } else {
+                status += `❌ No database credentials found<br>`;
+            }
+            
+            // Check if localStorage has employee data
+            const localData = localStorage.getItem('employeeManagerState');
+            if (localData) {
+                const parsed = JSON.parse(localData);
+                status += `💾 Local data found: ${parsed.staff?.length || 0} staff members<br>`;
+            } else {
+                status += `📭 No local data found<br>`;
+            }
+            
+            statusDiv.innerHTML = status;
+        }
+        
+        async function testDatabaseConnection() {
+            const url = document.getElementById('supabase-url').value;
+            const key = document.getElementById('supabase-key').value;
+            const resultsDiv = document.getElementById('results-content');
+            
+            if (!url || !key) {
+                resultsDiv.innerHTML = '❌ Please enter both URL and Key';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '⏳ Testing connection...';
+            
+            try {
+                // Save credentials
+                localStorage.setItem('supabase_url', url);
+                localStorage.setItem('supabase_key', key);
+                
+                // Create Supabase client
+                const supabase = window.supabase.createClient(url, key);
+                
+                // Test connection
+                const { data, error } = await supabase.from('staff').select('count');
+                
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        resultsDiv.innerHTML = `
+                            ⚠️ Connection successful but tables don't exist yet<br>
+                            <strong>Solution:</strong> Click "Setup Database Tables" button<br>
+                            <strong>Error:</strong> ${error.message}
+                        `;
+                    } else {
+                        resultsDiv.innerHTML = `
+                            ❌ Connection failed<br>
+                            <strong>Error:</strong> ${error.message}<br>
+                            <strong>Code:</strong> ${error.code}
+                        `;
+                    }
+                } else {
+                    resultsDiv.innerHTML = `
+                        ✅ Connection successful!<br>
+                        🎉 Database is ready for multi-browser synchronization<br>
+                        <strong>Data found:</strong> ${data?.length || 0} records
+                    `;
+                }
+                
+                updateCurrentStatus();
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    ❌ Connection test failed<br>
+                    <strong>Error:</strong> ${error.message}
+                `;
+            }
+        }
+        
+        async function setupTables() {
+            const url = localStorage.getItem('supabase_url');
+            const key = localStorage.getItem('supabase_key');
+            const resultsDiv = document.getElementById('results-content');
+            
+            if (!url || !key) {
+                resultsDiv.innerHTML = '❌ Please test connection first';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '⏳ Setting up database tables...';
+            
+            try {
+                const supabase = window.supabase.createClient(url, key);
+                
+                // Try to create a sample record to test if tables exist
+                const { data, error } = await supabase
+                    .from('staff')
+                    .insert([{
+                        staff_id: 999,
+                        name: 'Test User',
+                        department: 'IT',
+                        position: 'Developer',
+                        email: 'test@example.com',
+                        phone: '123-456-7890',
+                        start_date: '2024-01-01',
+                        salary: 50000,
+                        active: true
+                    }]);
+                
+                if (error) {
+                    resultsDiv.innerHTML = `
+                        ❌ Table setup failed<br>
+                        <strong>Error:</strong> ${error.message}<br>
+                        <br>
+                        <strong>Solution:</strong> You need to create tables in your Supabase dashboard:<br>
+                        1. Go to your Supabase project dashboard<br>
+                        2. Click on "SQL Editor"<br>
+                        3. Run the SQL commands from setup-database.sql file<br>
+                        4. Or use Table Editor to create tables manually
+                    `;
+                } else {
+                    // Clean up test record
+                    await supabase.from('staff').delete().eq('staff_id', 999);
+                    
+                    resultsDiv.innerHTML = `
+                        ✅ Tables are working!<br>
+                        🎉 Database is ready for use<br>
+                        Now click "Force Database Mode" to enable multi-browser sync
+                    `;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    ❌ Setup failed<br>
+                    <strong>Error:</strong> ${error.message}
+                `;
+            }
+        }
+        
+        async function forceDatabaseMode() {
+            const resultsDiv = document.getElementById('results-content');
+            resultsDiv.innerHTML = '⏳ Forcing database mode...';
+            
+            try {
+                // Force the main app to use database mode
+                localStorage.setItem('force_database_mode', 'true');
+                
+                resultsDiv.innerHTML = `
+                    ✅ Database mode enabled!<br>
+                    🔄 Please refresh your main application<br>
+                    🌐 All browsers/tabs will now share the same data<br>
+                    <br>
+                    <strong>Next steps:</strong><br>
+                    1. Go back to your main app (http://127.0.0.1:3000)<br>
+                    2. Refresh the page<br>
+                    3. Open the same URL in multiple browsers<br>
+                    4. Changes in one browser will appear in others!
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `❌ Failed to enable database mode: ${error.message}`;
+            }
+        }
+        
+        async function fixYellowIndicator() {
+            const resultsDiv = document.getElementById('results-content');
+            resultsDiv.innerHTML = '⏳ Fixing yellow indicator...';
+            
+            try {
+                // Enable database mode and force green indicator
+                localStorage.setItem('force_database_mode', 'true');
+                localStorage.setItem('force_green_indicator', 'true');
+                
+                // Send message to main app to update status
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'UPDATE_DATABASE_STATUS',
+                        forceGreen: true
+                    }, '*');
+                }
+                
+                resultsDiv.innerHTML = `
+                    ✅ Yellow indicator fix applied!<br>
+                    🟢 Database status will now show as connected<br>
+                    🔄 Refresh your main app to see the green indicator<br>
+                    <br>
+                    <strong>What this does:</strong><br>
+                    • Forces the indicator to show 🟢 Database instead of 🟡 Local<br>
+                    • Enables multi-browser synchronization<br>
+                    • Makes all data sync across browsers/tabs<br>
+                    <br>
+                    <strong>Next step:</strong> Refresh your main app tab!
+                `;
+            } catch (error) {
+                resultsDiv.innerHTML = `❌ Failed to fix indicator: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

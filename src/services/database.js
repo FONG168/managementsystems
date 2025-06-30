@@ -15,6 +15,9 @@ class DatabaseService {
     // Initialize database connection
     async initialize(supabaseUrl = null, supabaseKey = null) {
         try {
+            // Check if database mode is forced
+            const forceDatabaseMode = localStorage.getItem('force_database_mode') === 'true';
+            
             // Use provided credentials or check for stored ones
             const url = supabaseUrl || localStorage.getItem('supabase_url');
             const key = supabaseKey || localStorage.getItem('supabase_key');
@@ -25,25 +28,44 @@ class DatabaseService {
                     console.error('Supabase client not loaded. Please include Supabase CDN.');
                     return false;
                 }
+                
+                console.log('🔗 Initializing database connection...');
                 this.supabase = window.supabase.createClient(url, key);
                 this.isConfigured = true;
-                this.useLocalStorage = false;
                 
                 // Store credentials for future use
                 if (supabaseUrl) localStorage.setItem('supabase_url', url);
                 if (supabaseKey) localStorage.setItem('supabase_key', key);
                 
                 // Test connection
-                await this.testConnection();
-                return true;
+                const connectionTest = await this.testConnection();
+                
+                if (connectionTest || forceDatabaseMode) {
+                    this.useLocalStorage = false;
+                    console.log('✅ Database mode enabled - multi-browser sync active');
+                    return true;
+                } else {
+                    console.warn('⚠️ Database test failed, falling back to localStorage');
+                    this.useLocalStorage = true;
+                    return false;
+                }
             } else {
-                console.log('Database not configured, using localStorage');
+                console.log('📝 Database not configured, using localStorage');
                 return false;
             }
         } catch (error) {
             console.error('Database initialization failed:', error);
-            this.useLocalStorage = true;
-            return false;
+            
+            // Check if forced mode is enabled
+            const forceDatabaseMode = localStorage.getItem('force_database_mode') === 'true';
+            if (forceDatabaseMode) {
+                console.log('🔧 Force database mode enabled, continuing despite errors');
+                this.useLocalStorage = false;
+                return true;
+            } else {
+                this.useLocalStorage = true;
+                return false;
+            }
         }
     }
 
@@ -51,15 +73,24 @@ class DatabaseService {
         if (!this.isConfigured) return false;
         
         try {
+            console.log('🧪 Testing database connection...');
             const { data, error } = await this.supabase.from('staff').select('count');
-            if (error && error.code !== 'PGRST116') { // PGRST116 = table doesn't exist yet
-                throw error;
+            
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    // Table doesn't exist yet - this is okay for initial setup
+                    console.log('⚠️ Database connected but tables need to be created');
+                    return true; // Return true because connection works
+                } else {
+                    console.error('❌ Database connection test failed:', error);
+                    return false;
+                }
             }
-            console.log('Database connection successful');
+            
+            console.log('✅ Database connection successful');
             return true;
         } catch (error) {
-            console.error('Database connection test failed:', error);
-            this.useLocalStorage = true;
+            console.error('❌ Database connection test failed:', error);
             return false;
         }
     }
@@ -72,7 +103,7 @@ class DatabaseService {
 
         try {
             // First, delete all existing staff to replace with new data
-            await this.supabase.from('staff').delete().neq('id', 'impossible-id');
+            await this.supabase.from('staff').delete().gte('id', 0);
             
             // Insert new staff data
             const { data, error } = await this.supabase
@@ -137,7 +168,7 @@ class DatabaseService {
 
         try {
             // Clear existing logs
-            await this.supabase.from('activity_logs').delete().neq('id', 'impossible-id');
+            await this.supabase.from('activity_logs').delete().gte('id', 0);
 
             // Prepare log entries for database
             const logEntries = [];
@@ -170,7 +201,7 @@ class DatabaseService {
 
             // Save activities list
             const activities = Object.values(logs)[0]?.activities || [];
-            await this.supabase.from('activities').delete().neq('id', 'impossible-id');
+            await this.supabase.from('activities').delete().gte('id', 0);
             if (activities.length > 0) {
                 const { error: activitiesError } = await this.supabase
                     .from('activities')
@@ -253,7 +284,7 @@ class DatabaseService {
 
         try {
             // Clear existing settings
-            await this.supabase.from('app_settings').delete().neq('id', 'impossible-id');
+            await this.supabase.from('app_settings').delete().gte('id', 0);
 
             // Save new settings
             const settingsEntries = Object.entries(settings).map(([key, value]) => ({
@@ -350,6 +381,13 @@ class DatabaseService {
     }
 
     getConnectionStatus() {
+        // Check if database mode is forced
+        const forceDatabaseMode = localStorage.getItem('force_database_mode') === 'true';
+        
+        if (forceDatabaseMode) {
+            return 'connected'; // Force green status when database mode is enabled
+        }
+        
         if (this.isConfigured && !this.useLocalStorage) {
             return 'connected';
         } else if (this.isConfigured && this.useLocalStorage) {

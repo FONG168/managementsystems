@@ -103,12 +103,17 @@ export class StaffManager {
 
                     <!-- Empty State -->
                     <div id="empty-state" class="hidden text-center py-12">
-                        <div class="text-gray-400 text-6xl mb-4">👥</div>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No staff members found</h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-4">Get started by adding your first staff member.</p>
-                        <button id="add-first-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                            ➕ Add First Staff Member
-                        </button>
+                        <div class="text-gray-400 text-6xl mb-4">🆕</div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ready for Real Data Entry!</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-4">No sample data loaded. Start by adding your first real staff member, or load sample data for testing.</p>
+                        <div class="flex justify-center gap-3">
+                            <button id="add-first-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                                ➕ Add First Staff Member
+                            </button>
+                            <button id="load-sample-empty-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors">
+                                📋 Load Sample Data
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -215,8 +220,9 @@ export class StaffManager {
             this.openStaffModal();
         });
 
-        document.getElementById('add-first-staff-btn')?.addEventListener('click', () => {
-            this.openStaffModal();
+        // Add first staff button
+        document.getElementById('add-first-staff-btn').addEventListener('click', () => {
+            this.openAddModal();
         });
 
         // Export button
@@ -226,7 +232,12 @@ export class StaffManager {
 
         // Sample data button
         document.getElementById('load-sample-btn').addEventListener('click', () => {
-            this.loadSampleData();
+            this.app.loadSampleDataManually();
+        });
+
+        // Load sample data from empty state
+        document.getElementById('load-sample-empty-btn').addEventListener('click', () => {
+            this.app.loadSampleDataManually();
         });
 
         // Table sorting
@@ -527,6 +538,10 @@ export class StaffManager {
             return isNaN(num) ? max : Math.max(max, num);
         }, 0);
         return String(maxId + 1).padStart(3, '0');
+    }
+
+    openAddModal() {
+        this.openStaffModal();
     }
 
     editStaff(staffId) {

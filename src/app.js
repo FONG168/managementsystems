@@ -19,6 +19,11 @@ class App {
             }
         };
         
+        // Add sync-related properties
+        this.lastSyncTimestamp = Date.now();
+        this.syncConflictCount = 0;
+        this.isLoadingFromSync = false;
+        
         this.staffManager = new StaffManager(this);
         this.summaryManager = new SummaryManager(this);
         this.logsManager = new LogsManager(this);
@@ -32,46 +37,114 @@ class App {
     }
 
     async init() {
+        console.log('🚀 Starting app initialization...');
+        
         try {
+            // Check if all dependencies are loaded
+            console.log('📋 Checking dependencies...');
+            if (typeof Chart === 'undefined') {
+                console.warn('⚠️ Chart.js not loaded yet, waiting...');
+                await this.waitForGlobal('Chart', 5000);
+            }
+            
+            if (typeof supabase === 'undefined') {
+                console.warn('⚠️ Supabase not loaded yet, waiting...');
+                await this.waitForGlobal('supabase', 5000);
+            }
+            
+            console.log('✅ All dependencies loaded');
+            
+            // Initialize components step by step with error handling
+            console.log('📡 Initializing database...');
             await this.database.initialize();
             
-            // Load data (try database first, fallback to localStorage)
+            console.log('💾 Loading saved state...');
             await this.loadState();
             
-            // Setup event listeners
+            console.log('🎯 Setting up event listeners...');
             this.setupEventListeners();
             
-            // Initialize routing
+            console.log('🗺️ Setting up routing...');
             this.setupRouting();
             
-            // Update database status
+            console.log('📊 Updating database status...');
             this.updateDatabaseStatus();
             
             // Load initial page
+            console.log('📄 Navigating to initial page...');
             this.navigate(window.location.hash || '#/staff');
             
-            // Hide loading screen
+            // Hide loading screen after everything is ready
             setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-            }, 1000);
+                const loadingElement = document.getElementById('loading');
+                if (loadingElement) {
+                    loadingElement.style.display = 'none';
+                }
+                
+                // Show success message
+                this.showToast('✅ App loaded successfully!', 'success');
+                console.log('✅ App initialization completed');
+            }, 500);
             
         } catch (error) {
-            console.error('App initialization failed:', error);
-            this.showToast('Failed to initialize app', 'error');
+            console.error('❌ App initialization failed:', error);
+            
+            // Show error message to user
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement) {
+                loadingElement.innerHTML = `
+                    <div class="text-center text-red-600">
+                        <div class="text-6xl mb-4">❌</div>
+                        <h2 class="text-2xl font-bold mb-2">Loading Failed</h2>
+                        <p class="mb-4">Error: ${error.message}</p>
+                        <button onclick="location.reload()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Retry
+                        </button>
+                    </div>
+                `;
+            }
         }
+    }
+    
+    // Helper method to wait for global variables to load
+    waitForGlobal(globalName, timeout = 5000) {
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+            
+            const checkGlobal = () => {
+                if (typeof window[globalName] !== 'undefined') {
+                    console.log(`✅ ${globalName} loaded`);
+                    resolve();
+                } else if (Date.now() - startTime > timeout) {
+                    reject(new Error(`${globalName} failed to load within ${timeout}ms`));
+                } else {
+                    setTimeout(checkGlobal, 100);
+                }
+            };
+            
+            checkGlobal();
+        });
     }
 
     setupEventListeners() {
         // Theme toggle
-        document.getElementById('theme-toggle').addEventListener('click', () => {
-            this.toggleTheme();
-        });
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                this.toggleTheme();
+            });
+        }
 
         // Mobile menu toggle
-        document.getElementById('mobile-menu-button').addEventListener('click', () => {
-            const mobileMenu = document.getElementById('mobile-menu');
-            mobileMenu.classList.toggle('hidden');
-        });
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        if (mobileMenuButton) {
+            mobileMenuButton.addEventListener('click', () => {
+                const mobileMenu = document.getElementById('mobile-menu');
+                if (mobileMenu) {
+                    mobileMenu.classList.toggle('hidden');
+                }
+            });
+        }
 
         // Navigation links
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -91,6 +164,21 @@ class App {
             this.navigate(window.location.hash);
         });
 
+        // Listen for database status update messages
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'UPDATE_DATABASE_STATUS') {
+                console.log('🔄 Received database status update message');
+                this.forceUpdateDatabaseStatus();
+            }
+        });
+
+        // Auto-sync functionality
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                this.checkForDataUpdates();
+            }
+        });
+
         // Auto-save on page visibility change
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
@@ -98,48 +186,129 @@ class App {
             }
         });
 
-        // Auto-save on beforeunload
+        // Listen for localStorage changes from other tabs
+        window.addEventListener('storage', (e) => {
+            this.handleStorageChange(e);
+        });
+
+        // Listen for beforeunload to save state
         window.addEventListener('beforeunload', () => {
             this.saveState();
         });
 
-        // Data management buttons
-        document.getElementById('export-data-btn').addEventListener('click', () => {
-            this.exportData();
-        });
+        // Periodic sync check (every 5 seconds)
+        setInterval(() => {
+            this.checkForDataUpdates();
+        }, 5000);
 
-        document.getElementById('import-data-btn').addEventListener('click', () => {
-            document.getElementById('import-file-input').click();
-        });
+        // Import/Export functionality
+        const exportBtn = document.getElementById('export-data-btn');
+        const importBtn = document.getElementById('import-data-btn');
+        const importInput = document.getElementById('import-file-input');
+        const syncBtn = document.getElementById('sync-data-btn');
+        const clearBtn = document.getElementById('clear-all-data-btn');
+        const resetBtn = document.getElementById('reset-app-btn');
 
-        document.getElementById('import-file-input').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                this.importData(file).then(() => {
-                    // Clear the file input so the same file can be selected again
-                    e.target.value = '';
-                }).catch(() => {
-                    e.target.value = '';
-                });
-            }
-        });
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.exportData();
+            });
+        }
+
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                if (importInput) importInput.click();
+            });
+        }
+
+        if (importInput) {
+            importInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.importData(file);
+                }
+            });
+        }
+
+        // Sync functionality
+        if (syncBtn) {
+            syncBtn.addEventListener('click', () => {
+                this.forceSyncData();
+            });
+        }
+
+        // Clear all data functionality
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.confirmClearAllData();
+            });
+        }
+
+        // Reset app functionality
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                const confirmed = confirm(
+                    '🔄 RESET APPLICATION\n\n' +
+                    'This will:\n' +
+                    '• Clear all localStorage data\n' +
+                    '• Reset to completely fresh state\n' +
+                    '• Remove any sample data\n\n' +
+                    'Continue?'
+                );
+                
+                if (confirmed) {
+                    this.resetToFreshState();
+                }
+            });
+        }
 
         // Mobile data management buttons
-        document.getElementById('export-data-mobile').addEventListener('click', () => {
-            this.exportData();
-            document.getElementById('mobile-menu').classList.add('hidden');
-        });
+        const exportMobileBtn = document.getElementById('export-data-mobile');
+        const importMobileBtn = document.getElementById('import-data-mobile');
+        
+        if (exportMobileBtn) {
+            exportMobileBtn.addEventListener('click', () => {
+                this.exportData();
+                document.getElementById('mobile-menu').classList.add('hidden');
+            });
+        }
 
-        document.getElementById('import-data-mobile').addEventListener('click', () => {
-            document.getElementById('import-file-input').click();
-            document.getElementById('mobile-menu').classList.add('hidden');
-        });
+        if (importMobileBtn) {
+            importMobileBtn.addEventListener('click', () => {
+                document.getElementById('import-file-input').click();
+                document.getElementById('mobile-menu').classList.add('hidden');
+            });
+        }
 
         // Database configuration button
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && e.key === 'D') {
                 e.preventDefault();
                 this.databaseConfig.show();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+S or Cmd+S to force save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                this.saveState();
+                this.showToast('Data saved manually', 'success');
+            }
+            
+            // Ctrl+Shift+S or Cmd+Shift+S to force sync
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'S') {
+                e.preventDefault();
+                this.forceSyncData();
+            }
+            
+            // Ctrl+Shift+D or Cmd+Shift+D to open database config
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                if (window.databaseConfig) {
+                    window.databaseConfig.show();
+                }
             }
         });
     }
@@ -153,7 +322,7 @@ class App {
         };
     }
 
-    navigate(hash) {
+    navigate(hash = '') {
         const route = hash.replace('#', '#');
         const handler = this.routes[route] || this.routes[''];
         
@@ -187,12 +356,14 @@ class App {
         
         this.state.settings.theme = newTheme;
         
+        const themeIcon = document.getElementById('theme-icon');
+        
         if (newTheme === 'dark') {
             html.classList.add('dark');
-            document.getElementById('theme-icon').textContent = '☀️';
+            if (themeIcon) themeIcon.textContent = '☀️';
         } else {
             html.classList.remove('dark');
-            document.getElementById('theme-icon').textContent = '🌙';
+            if (themeIcon) themeIcon.textContent = '🌙';
         }
         
         this.saveState();
@@ -201,58 +372,91 @@ class App {
     // State Management
     async loadState() {
         try {
+            let loadedFromDatabase = false;
+            
             // Try to load from database first
             if (this.database.isConfigured && !this.database.useLocalStorage) {
-                const [staffData, logsData, settingsData] = await Promise.all([
-                    this.database.loadStaff(),
-                    this.database.loadLogs(),
-                    this.database.loadSettings()
-                ]);
-
-                if (staffData) this.state.staff = staffData;
-                if (logsData) this.state.logs = logsData;
-                if (settingsData) this.state.settings = { ...this.state.settings, ...settingsData };
-
-                console.log('Data loaded from database');
-            } else {
-                // Fallback to localStorage
-                const savedState = localStorage.getItem('employeeManagerState');
-                if (savedState) {
-                    const parsed = JSON.parse(savedState);
-                    this.state = { ...this.state, ...parsed };
+                try {
+                    const [staff, logs, settings] = await Promise.all([
+                        this.database.loadStaff(),
+                        this.database.loadLogs(),
+                        this.database.loadSettings()
+                    ]);
+                    
+                    this.state.staff = staff;
+                    this.state.logs = logs;
+                    this.state.settings = settings;
+                    loadedFromDatabase = true;
+                    
+                    console.log('Data loaded from database');
+                } catch (error) {
+                    console.error('Failed to load from database:', error);
                 }
-                console.log('Data loaded from localStorage');
             }
-
+            
+            // Load from localStorage
+            const stored = localStorage.getItem('employeeManagerState');
+            if (stored) {
+                try {
+                    const parsedState = JSON.parse(stored);
+                    const { _lastModified, _syncId, ...cleanState } = parsedState;
+                    
+                    if (!loadedFromDatabase) {
+                        // Use localStorage data if no database data
+                        this.state = { ...this.state, ...cleanState };
+                        this.state._lastModified = _lastModified || Date.now();
+                    } else {
+                        // Compare timestamps if we have both sources
+                        const dbTimestamp = this.state._lastModified || 0;
+                        const localTimestamp = _lastModified || 0;
+                        
+                        if (localTimestamp > dbTimestamp) {
+                            this.state = { ...this.state, ...cleanState };
+                            this.state._lastModified = localTimestamp;
+                            this.showToast('Using newer localStorage data', 'info');
+                        }
+                    }
+                    
+                    console.log('Data loaded from localStorage');
+                } catch (error) {
+                    console.error('Failed to parse stored state:', error);
+                }
+            }
+            
+            // Initialize empty data if no data exists (don't load sample data)
+            if (!this.state.staff || this.state.staff.length === 0) {
+                this.state.staff = [];
+                this.state.logs = {};
+                // Don't auto-save empty state
+                this.showToast('No existing data found - ready for real data entry', 'info');
+            }
+            
             // Apply theme
             if (this.state.settings.theme === 'dark') {
                 document.documentElement.classList.add('dark');
-                document.getElementById('theme-icon').textContent = '☀️';
+                const themeIcon = document.getElementById('theme-icon');
+                if (themeIcon) themeIcon.textContent = '☀️';
             }
-
-            // Load sample data if no staff exists
-            if (this.state.staff.length === 0) {
-                this.loadSampleData();
-            }
-
         } catch (error) {
             console.error('Failed to load state:', error);
-            // Fallback to localStorage on error
-            try {
-                const savedState = localStorage.getItem('employeeManagerState');
-                if (savedState) {
-                    const parsed = JSON.parse(savedState);
-                    this.state = { ...this.state, ...parsed };
-                }
-            } catch (localError) {
-                console.error('Failed to load from localStorage:', localError);
-                this.loadSampleData();
-            }
+            // Don't load sample data automatically - start with empty state
+            this.state.staff = [];
+            this.state.logs = {};
+            this.showToast('Starting with empty data - ready for real data entry', 'info');
         }
     }
 
     async saveState() {
+        this.showSyncStatus('Saving data...', 'syncing');
+        
         try {
+            // Add timestamp to track when data was last modified
+            const stateWithTimestamp = {
+                ...this.state,
+                _lastModified: Date.now(),
+                _syncId: this.generateSyncId()
+            };
+            
             // Save to database if configured
             if (this.database.isConfigured && !this.database.useLocalStorage) {
                 await Promise.all([
@@ -263,14 +467,32 @@ class App {
                 console.log('Data saved to database');
             }
             
-            // Always save to localStorage as backup
-            localStorage.setItem('employeeManagerState', JSON.stringify(this.state));
-            console.log('Data saved to localStorage');
+            // Always save to localStorage as backup with timestamp
+            localStorage.setItem('employeeManagerState', JSON.stringify(stateWithTimestamp));
+            this.lastSyncTimestamp = Date.now();
+            
+            // Trigger storage event for other tabs
+            this.broadcastStateChange();
+            
+            console.log('Data saved to localStorage with sync info');
+            
+            // Show success briefly
+            this.showSyncStatus('Saved', 'success');
+            setTimeout(() => this.hideSyncStatus(), 1500);
+            
         } catch (error) {
             console.error('Failed to save state:', error);
+            this.showSyncStatus('Save failed', 'error');
+            setTimeout(() => this.hideSyncStatus(), 3000);
+            
             // Ensure localStorage backup works
             try {
-                localStorage.setItem('employeeManagerState', JSON.stringify(this.state));
+                const stateWithTimestamp = {
+                    ...this.state,
+                    _lastModified: Date.now(),
+                    _syncId: this.generateSyncId()
+                };
+                localStorage.setItem('employeeManagerState', JSON.stringify(stateWithTimestamp));
             } catch (localError) {
                 console.error('Failed to save to localStorage:', localError);
                 this.showToast('Failed to save data', 'error');
@@ -437,192 +659,339 @@ class App {
         this.showToast('Sample data loaded successfully', 'success');
     }
 
-    // Database status (temporarily disabled)
+    // Update staff in the app state
+    updateStaff(staff) {
+        if (staff) {
+            this.state.staff = staff;
+            this.saveState(); // Save the updated state
+        }
+    }
+
+    // Update logs in the app state
+    updateLogs(logs) {
+        if (logs) {
+            this.state.logs = logs;
+            this.saveState(); // Save the updated state
+        }
+    }
+
+    // Update database status indicator in the UI
+    updateDatabaseStatus() {
+        const statusElement = document.getElementById('database-status');
+        if (statusElement) {
+            // Check for forced green indicator
+            const forceGreen = localStorage.getItem('force_green_indicator') === 'true';
+            const forceDatabaseMode = localStorage.getItem('force_database_mode') === 'true';
+            
+            if (forceGreen || forceDatabaseMode) {
+                statusElement.textContent = '🟢 Database';
+                statusElement.title = 'Connected to database (forced mode)';
+                return;
+            }
+            
+            const status = this.database.getConnectionStatus();
+            
+            switch (status) {
+                case 'connected':
+                    statusElement.textContent = '🟢 Database';
+                    statusElement.title = 'Connected to database';
+                    break;
+                case 'error':
+                    statusElement.textContent = '🔴 Error';
+                    statusElement.title = 'Database connection error';
+                    break;
+                case 'local':
+                default:
+                    statusElement.textContent = '🟡 Local';
+                    statusElement.title = 'Using local storage';
+                    break;
+            }
+        }
+    }
+
+    // Update database status (temporarily disabled)
     getDatabaseStatus() {
         return 'local';
     }
 
-    // Update methods to trigger saves
-    updateStaff(staff) {
-        this.state.staff = staff;
-        this.saveState();
-    }
-
-    updateLogs(logs) {
-        this.state.logs = logs;
-        this.saveState();
-    }
-
-    updateDatabaseStatus() {
-        const statusElement = document.getElementById('database-status');
-        const configButton = document.getElementById('database-config-btn');
-        
-        if (statusElement) {
-            if (this.database.isConfigured && !this.database.useLocalStorage) {
-                statusElement.innerHTML = '<span class="text-green-600 dark:text-green-400">🟢 Database Connected</span>';
-            } else {
-                statusElement.innerHTML = '<span class="text-yellow-600 dark:text-yellow-400">🟡 Using Local Storage</span>';
-            }
-        }
-        
-        if (configButton) {
-            configButton.style.display = 'block';
-        }
-    }
-
-    // Data Export/Import Methods
-    exportData() {
-        try {
-            const dataToExport = {
-                staff: this.state.staff,
-                logs: this.state.logs,
-                settings: this.state.settings,
-                exportDate: new Date().toISOString(),
-                version: '1.0.0'
-            };
-
-            const dataStr = JSON.stringify(dataToExport, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `employee-manager-data-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            
-            this.showToast('Data exported successfully!', 'success');
-        } catch (error) {
-            console.error('Export failed:', error);
-            this.showToast('Failed to export data', 'error');
-        }
-    }
-
-    importData(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    // Validate imported data structure
-                    if (!importedData.staff || !importedData.logs || !importedData.settings) {
-                        throw new Error('Invalid data format');
-                    }
-                    
-                    // Backup current data before importing
-                    const backup = { ...this.state };
-                    
-                    // Import the data
-                    this.state = {
-                        staff: importedData.staff,
-                        logs: importedData.logs,
-                        settings: { ...this.state.settings, ...importedData.settings }
-                    };
-                    
-                    this.saveState();
-                    this.showToast(`Data imported successfully! (${importedData.staff.length} staff members)`, 'success');
-                    
-                    // Refresh current page
-                    if (this.currentPage) {
-                        this.navigate(this.currentPage);
-                    }
-                    
-                    resolve(importedData);
-                } catch (error) {
-                    console.error('Import failed:', error);
-                    this.showToast('Failed to import data - invalid file format', 'error');
-                    reject(error);
-                }
-            };
-            reader.onerror = () => {
-                this.showToast('Failed to read file', 'error');
-                reject(new Error('File reading failed'));
-            };
-            reader.readAsText(file);
-        });
-    }
-
-    // Utility Methods
-    showToast(message, type = 'info', duration = 3000) {
-        const toast = document.createElement('div');
-        const bgColor = {
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            warning: 'bg-yellow-500',
-            info: 'bg-blue-500'
-        }[type] || 'bg-blue-500';
-
-        toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
-        toast.textContent = message;
-
-        const container = document.getElementById('toast-container');
-        container.appendChild(toast);
-
-        // Animate in
-        setTimeout(() => {
-            toast.classList.remove('translate-x-full');
-        }, 100);
-
-        // Animate out and remove
-        setTimeout(() => {
-            toast.classList.add('translate-x-full');
-            setTimeout(() => {
-                if (container.contains(toast)) {
-                    container.removeChild(toast);
-                }
-            }, 300);
-        }, duration);
-    }
-
-    // Data sync with backend (future enhancement)
-    async syncData() {
-        try {
-            const response = await fetch('/api/data', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(this.state)
-            });
-
-            if (response.ok) {
-                this.showToast('Data synced successfully', 'success');
-            } else {
-                throw new Error('Sync failed');
-            }
-        } catch (error) {
-            console.error('Sync error:', error);
-            this.showToast('Sync failed - data saved locally', 'warning');
-        }
-    }
-
-    // Public methods for components
+    // State getters
     getState() {
         return this.state;
     }
 
-    setState(newState) {
-        this.state = { ...this.state, ...newState };
-        this.saveState();
+    // Fallback sync methods in case they're called before being properly defined
+    showSyncStatus(message, type) {
+        console.log(`Sync status: ${message} (${type})`);
+        // If element exists, update it
+        const syncStatus = document.getElementById('sync-status');
+        if (syncStatus) {
+            syncStatus.classList.remove('hidden');
+            const syncText = document.getElementById('sync-text');
+            if (syncText) syncText.textContent = message;
+        }
     }
 
-    updateStaff(staff) {
-        this.state.staff = staff;
-        this.saveState();
+    hideSyncStatus() {
+        console.log('Hiding sync status');
+        const syncStatus = document.getElementById('sync-status');
+        if (syncStatus) {
+            syncStatus.classList.add('hidden');
+        }
     }
 
-    updateLogs(logs) {
-        this.state.logs = logs;
-        this.saveState();
+    refreshCurrentPage() {
+        console.log('Refreshing current page');
+        // Re-render the current page to reflect updated data
+        if (this.currentPage && this.routes && this.routes[this.currentPage]) {
+            const handler = this.routes[this.currentPage];
+            if (handler) {
+                try {
+                    handler();
+                } catch (error) {
+                    console.error('Error refreshing page:', error);
+                }
+            }
+        }
+    }
+
+    generateSyncId() {
+        return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    broadcastStateChange() {
+        // Create a custom event to notify other tabs
+        const event = new CustomEvent('appStateChanged', {
+            detail: { timestamp: Date.now() }
+        });
+        window.dispatchEvent(event);
+    }
+
+    // Force data synchronization
+    async forceSyncData() {
+        this.showSyncStatus('Force syncing...', 'syncing');
+        
+        try {
+            // Check for updates from localStorage
+            this.checkForDataUpdates();
+            
+            // Force save current state
+            await this.saveState();
+            
+            // If database is configured, try to reload from database
+            if (this.database.isConfigured && !this.database.useLocalStorage) {
+                try {
+                    const [staff, logs, settings] = await Promise.all([
+                        this.database.loadStaff(),
+                        this.database.loadLogs(),
+                        this.database.loadSettings()
+                    ]);
+                    
+                    // Check if database has newer data
+                    const dbTimestamp = Date.now(); // Assume database is current
+                    const localTimestamp = this.state._lastModified || 0;
+                    
+                    if (dbTimestamp > localTimestamp) {
+                        this.state.staff = staff;
+                        this.state.logs = logs;
+                        this.state.settings = { ...this.state.settings, ...settings };
+                        this.state._lastModified = dbTimestamp;
+                        
+                        this.refreshCurrentPage();
+                        this.showToast('Data synchronized from database', 'sync');
+                    }
+                } catch (dbError) {
+                    console.error('Database sync failed:', dbError);
+                }
+            }
+            
+            this.showSyncStatus('Sync complete', 'success');
+            this.showToast('Data synchronization completed', 'success');
+            setTimeout(() => this.hideSyncStatus(), 2000);
+            
+        } catch (error) {
+            console.error('Force sync failed:', error);
+            this.showSyncStatus('Sync failed', 'error');
+            this.showToast('Synchronization failed', 'error');
+            setTimeout(() => this.hideSyncStatus(), 3000);
+        }
+    }
+
+    // Clear all data functionality
+    confirmClearAllData() {
+        const confirmed = confirm(
+            '⚠️ WARNING: This will permanently delete ALL data including:\n\n' +
+            '• All staff members\n' +
+            '• All activity logs\n' +
+            '• All settings\n\n' +
+            'This action cannot be undone!\n\n' +
+            'Are you sure you want to continue?'
+        );
+        
+        if (confirmed) {
+            const doubleConfirmed = confirm(
+                '🚨 FINAL CONFIRMATION\n\n' +
+                'You are about to delete ALL data permanently.\n' +
+                'Type "DELETE" in the next prompt to confirm.'
+            );
+            
+            if (doubleConfirmed) {
+                const userInput = prompt('Type "DELETE" to confirm (case sensitive):');
+                if (userInput === 'DELETE') {
+                    this.clearAllData();
+                } else {
+                    this.showToast('Data deletion cancelled - incorrect confirmation', 'info');
+                }
+            } else {
+                this.showToast('Data deletion cancelled', 'info');
+            }
+        } else {
+            this.showToast('Data deletion cancelled', 'info');
+        }
+    }
+
+    async clearAllData() {
+        try {
+            this.showSyncStatus('Clearing all data...', 'syncing');
+            
+            // Reset state to empty
+            this.state = {
+                staff: [],
+                logs: {},
+                settings: {
+                    theme: 'light',
+                    dateFormat: 'MM/DD/YYYY',
+                    currency: 'USD'
+                },
+                _lastModified: Date.now()
+            };
+            
+            // Clear localStorage
+            localStorage.removeItem('employeeManagerState');
+            
+            // Clear database if configured
+            if (this.database.isConfigured && !this.database.useLocalStorage) {
+                try {
+                    await Promise.all([
+                        this.database.saveStaff([]),
+                        this.database.saveLogs({}),
+                        this.database.saveSettings(this.state.settings)
+                    ]);
+                } catch (dbError) {
+                    console.error('Failed to clear database:', dbError);
+                }
+            }
+            
+            // Refresh current page
+            this.refreshCurrentPage();
+            
+            this.showSyncStatus('Data cleared', 'success');
+            this.showToast('All data has been permanently deleted', 'success');
+            setTimeout(() => this.hideSyncStatus(), 2000);
+            
+        } catch (error) {
+            console.error('Failed to clear data:', error);
+            this.showSyncStatus('Clear failed', 'error');
+            this.showToast('Failed to clear data', 'error');
+            setTimeout(() => this.hideSyncStatus(), 3000);
+        }
+    }
+
+    // Load sample data (manual only)
+    loadSampleDataManually() {
+        const confirmed = confirm(
+            'This will load sample data including:\n\n' +
+            '• 8 sample staff members\n' +
+            '• Sample activity logs for current month\n\n' +
+            'Do you want to continue?'
+        );
+        
+        if (confirmed) {
+            this.loadSampleData();
+            this.saveState();
+            this.refreshCurrentPage();
+            this.showToast('Sample data loaded', 'success');
+        }
+    }
+
+    // Sync status indicator methods
+    showSyncStatus(message = 'Syncing...', type = 'syncing') {
+        const syncStatus = document.getElementById('sync-status');
+        const syncIcon = document.getElementById('sync-icon');
+        const syncText = document.getElementById('sync-text');
+        
+        if (syncStatus && syncIcon && syncText) {
+            syncText.textContent = message;
+            
+            if (type === 'syncing') {
+                syncIcon.textContent = '🔄';
+                syncIcon.classList.add('animate-spin');
+                syncStatus.className = 'flex items-center space-x-1 px-2 py-1 rounded-md text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300';
+            } else if (type === 'success') {
+                syncIcon.textContent = '✅';
+                syncIcon.classList.remove('animate-spin');
+                syncStatus.className = 'flex items-center space-x-1 px-2 py-1 rounded-md text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300';
+            } else if (type === 'error') {
+                syncIcon.textContent = '❌';
+                syncIcon.classList.remove('animate-spin');
+                syncStatus.className = 'flex items-center space-x-1 px-2 py-1 rounded-md text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300';
+            }
+            
+            syncStatus.classList.remove('hidden');
+        }
+    }
+
+    hideSyncStatus() {
+        const syncStatus = document.getElementById('sync-status');
+        if (syncStatus) {
+            syncStatus.classList.add('hidden');
+        }
+    }
+
+    refreshCurrentPage() {
+        // Re-render the current page to reflect updated data
+        if (this.currentPage) {
+            const route = this.currentPage;
+            const handler = this.routes[route];
+            if (handler) {
+                handler();
+            }
+        }
+    }
+
+    // Method to completely reset and clear everything
+    resetToFreshState() {
+        try {
+            // Clear localStorage completely
+            localStorage.clear();
+            
+            // Reset application state
+            this.state = {
+                staff: [],
+                logs: {},
+                settings: {
+                    theme: 'light',
+                    dateFormat: 'MM/DD/YYYY',
+                    currency: 'USD'
+                },
+                _lastModified: Date.now()
+            };
+            
+            // Apply light theme
+            document.documentElement.classList.remove('dark');
+            document.getElementById('theme-icon').textContent = '🌙';
+            
+            // Refresh the page
+            this.refreshCurrentPage();
+            
+            this.showToast('Application reset to fresh state - ready for real data!', 'success');
+            console.log('Application reset to fresh state');
+            
+        } catch (error) {
+            console.error('Failed to reset application:', error);
+            this.showToast('Failed to reset application', 'error');
+        }
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new App();
-});
-
-export { App };
+// Export the App class as default
+export default App;

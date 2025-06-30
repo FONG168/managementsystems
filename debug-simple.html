@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Employee Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div id="debug-info" class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow">
+        <h1 class="text-2xl font-bold mb-4">🔧 Debug Information</h1>
+        <div id="status" class="space-y-2">
+            <p>Loading debug information...</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔍 Starting debug...');
+        
+        const statusDiv = document.getElementById('status');
+        
+        function addStatus(message, type = 'info') {
+            const p = document.createElement('p');
+            p.className = type === 'error' ? 'text-red-600' : type === 'success' ? 'text-green-600' : 'text-blue-600';
+            p.textContent = message;
+            statusDiv.appendChild(p);
+            console.log(message);
+        }
+        
+        // Check basic environment
+        addStatus('✅ Basic HTML loaded');
+        addStatus(`📱 User Agent: ${navigator.userAgent}`);
+        addStatus(`🌐 Location: ${window.location.href}`);
+        
+        // Check if running from file:// protocol
+        if (window.location.protocol === 'file:') {
+            addStatus('⚠️ Running from file:// protocol - ES6 modules may not work', 'error');
+            addStatus('💡 Try running from a local server (e.g., Live Server extension)');
+        } else {
+            addStatus('✅ Running from HTTP server');
+        }
+        
+        // Test module loading
+        addStatus('🧪 Testing ES6 module support...');
+        
+        // Try to load a simple module
+        import('./src/components/utils.js')
+            .then(module => {
+                addStatus('✅ ES6 modules working - Utils loaded', 'success');
+                return import('./src/services/database.js');
+            })
+            .then(module => {
+                addStatus('✅ Database service loaded', 'success');
+                return import('./src/components/staff.js');
+            })
+            .then(module => {
+                addStatus('✅ Staff component loaded', 'success');
+                return import('./src/app.js');
+            })
+            .then(module => {
+                addStatus('✅ All modules loaded successfully!', 'success');
+                addStatus('🚀 Modules are working - issue might be elsewhere');
+            })
+            .catch(error => {
+                addStatus(`❌ Module loading failed: ${error.message}`, 'error');
+                addStatus('🔧 This is likely the cause of the loading issue');
+                console.error('Module loading error:', error);
+            });
+        
+        // Check external dependencies
+        setTimeout(() => {
+            addStatus('🧪 Checking external dependencies...');
+            
+            if (typeof tailwind !== 'undefined') {
+                addStatus('✅ Tailwind CSS loaded', 'success');
+            } else {
+                addStatus('⚠️ Tailwind CSS not fully loaded', 'error');
+            }
+            
+            if (typeof Chart !== 'undefined') {
+                addStatus('✅ Chart.js loaded', 'success');
+            } else {
+                addStatus('❌ Chart.js not loaded', 'error');
+            }
+            
+            if (typeof supabase !== 'undefined') {
+                addStatus('✅ Supabase loaded', 'success');
+            } else {
+                addStatus('❌ Supabase not loaded', 'error');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

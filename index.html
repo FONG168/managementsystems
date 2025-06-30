@@ -93,23 +93,18 @@
 
                     <!-- Theme Toggle & Data Management & Mobile Menu -->
                     <div class="flex items-center space-x-2">
+                        <!-- Sync Status Indicator -->
+                        <div id="sync-status" class="hidden items-center space-x-1 px-2 py-1 rounded-md text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300" title="Data synchronization status">
+                            <span id="sync-icon" class="animate-spin">🔄</span>
+                            <span id="sync-text">Syncing...</span>
+                        </div>
+                        
                         <!-- Database Status & Config -->
                         <button id="database-config-btn" onclick="window.databaseConfig?.show()" class="hidden sm:flex items-center space-x-1 px-2 py-1 rounded-md text-xs transition-colors hover:bg-gray-100 dark:hover:bg-gray-700" title="Database Status (Ctrl+Shift+D)">
                             <span id="database-status" class="text-gray-600 dark:text-gray-400">🟡 Local</span>
                         </button>
                         
-                        <!-- Data Management Buttons -->
-                        <div class="hidden sm:flex items-center space-x-2">
-                            <button id="export-data-btn" class="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors flex items-center space-x-1" title="Export Data">
-                                <span>💾</span>
-                                <span class="hidden lg:inline">Export</span>
-                            </button>
-                            <button id="import-data-btn" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center space-x-1" title="Import Data">
-                                <span>📁</span>
-                                <span class="hidden lg:inline">Import</span>
-                            </button>
-                            <input type="file" id="import-file-input" accept=".json" class="hidden">
-                        </div>
+
                         
                         <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                             <span id="theme-icon">🌙</span>
@@ -259,6 +254,150 @@
         </div>
     </div>
 
-    <script src="src/app.js" type="module"></script>
+    <!-- Temporary Database Test Button -->
+    <script>
+    // Add test button after app loads
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            if (window.app) {
+                // Create test button
+                const testButton = document.createElement('button');
+                testButton.textContent = '🧪 Test Database Fix';
+                testButton.style.cssText = `
+                    position: fixed;
+                    top: 70px;
+                    right: 10px;
+                    z-index: 9999;
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 10px 15px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                `;
+                
+                testButton.onclick = async function() {
+                    console.log('🧪 Testing Database Fix...');
+                    
+                    try {
+                        // Show current status
+                        console.log('📊 Current Status:');
+                        console.log('- Using localStorage:', window.app.database.useLocalStorage ? 'YES (❌ Problem)' : 'NO (✅ Good)');
+                        console.log('- Staff count:', window.app.state.staff?.length || 0);
+                        
+                        // Force save to database
+                        console.log('💾 Saving to database...');
+                        await window.app.saveState();
+                        
+                        // Clear app state to test database loading
+                        console.log('🗑️ Clearing app data...');
+                        window.app.state.staff = [];
+                        
+                        // Force reload from database
+                        console.log('📥 Loading from database...');
+                        await window.app.loadState();
+                        
+                        // Check results
+                        console.log('✅ Test Results:');
+                        console.log('- Database working:', !window.app.database.useLocalStorage ? 'YES ✅' : 'NO ❌');
+                        console.log('- Staff loaded:', window.app.state.staff?.length || 0);
+                        
+                        if (!window.app.database.useLocalStorage && window.app.state.staff?.length > 0) {
+                            console.log('🎉 SUCCESS! Database is working!');
+                            console.log('💡 Both browsers will now show the same data!');
+                            testButton.textContent = '✅ Database Fixed!';
+                            testButton.style.background = '#4CAF50';
+                        } else {
+                            console.log('⚠️ Still using localStorage fallback');
+                            testButton.textContent = '⚠️ Check Console';
+                            testButton.style.background = '#ff9800';
+                        }
+                        
+                        // Refresh the page display
+                        if (window.app.currentPage === '#/staff') {
+                            window.app.staffManager.render();
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Test failed:', error);
+                        testButton.textContent = '❌ Test Failed';
+                        testButton.style.background = '#f44336';
+                    }
+                };
+                
+                document.body.appendChild(testButton);
+                
+                // Auto-remove after 2 minutes
+                setTimeout(() => {
+                    if (testButton.parentNode) {
+                        testButton.remove();
+                    }
+                }, 120000);
+            }
+        }, 2000);
+    });
+    </script>
+
+    <script>
+        // Wait for DOM and all dependencies to load before starting the app
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('📄 DOM loaded, checking dependencies...');
+            
+            // Check if all external libraries are loaded
+            const maxWait = 10000; // 10 seconds max wait
+            const startTime = Date.now();
+            
+            const checkDependencies = () => {
+                const checks = [
+                    { name: 'Tailwind CSS', check: () => typeof tailwind !== 'undefined' },
+                    { name: 'Chart.js', check: () => typeof Chart !== 'undefined' },
+                    { name: 'Supabase', check: () => typeof supabase !== 'undefined' }
+                ];
+                
+                const missing = checks.filter(dep => !dep.check());
+                
+                if (missing.length === 0) {
+                    console.log('✅ All dependencies loaded, starting app...');
+                    // Import and start the app
+                    import('./src/app.js').then(module => {
+                        const App = module.default || module.App;
+                        window.app = new App();
+                    }).catch(error => {
+                        console.error('❌ Failed to load app:', error);
+                        showLoadingError('Failed to load application modules: ' + error.message);
+                    });
+                } else if (Date.now() - startTime < maxWait) {
+                    console.log(`⏳ Waiting for: ${missing.map(d => d.name).join(', ')}`);
+                    setTimeout(checkDependencies, 500);
+                } else {
+                    console.error('❌ Timeout waiting for dependencies:', missing.map(d => d.name));
+                    showLoadingError('Timeout loading dependencies: ' + missing.map(d => d.name).join(', '));
+                }
+            };
+            
+            checkDependencies();
+        });
+        
+        function showLoadingError(message) {
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement) {
+                loadingElement.innerHTML = `
+                    <div class="text-center text-red-600">
+                        <div class="text-6xl mb-4">❌</div>
+                        <h2 class="text-2xl font-bold mb-2">Loading Failed</h2>
+                        <p class="mb-4">${message}</p>
+                        <button onclick="location.reload()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Retry
+                        </button>
+                        <div class="mt-4 text-sm text-gray-600">
+                            <p>Check browser console for more details</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    </script>
 </body>
 </html>
