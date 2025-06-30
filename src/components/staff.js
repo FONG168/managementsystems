@@ -330,47 +330,30 @@ export class StaffManager {
 
     createStaffCard(staff) {
         return `
-            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-3 shadow-sm">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <h3 class="font-semibold text-gray-900 dark:text-white">${staff.name}</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">ID: ${staff.id}</p>
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-2 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <h3 class="font-medium text-gray-900 dark:text-white text-sm">${staff.name}</h3>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">ID: ${staff.id}</span>
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${staff.active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'}">
+                                ${staff.active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            ${staff.department} • ${staff.position}
+                        </div>
                     </div>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${staff.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}">
-                        ${staff.active ? '✅ Active' : '❌ Inactive'}
-                    </span>
-                </div>
-                
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Department:</span>
-                        <span class="text-sm text-gray-900 dark:text-white">${staff.department}</span>
+                    <div class="flex space-x-1 ml-2">
+                        <button onclick="window.staffManager.openStaffModal('${staff.id}')" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded text-xs touch-target" title="Edit">
+                            ✏️
+                        </button>
+                        <button onclick="window.staffManager.deleteStaff('${staff.id}')" 
+                                class="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded text-xs touch-target" title="Delete">
+                            🗑️
+                        </button>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Position:</span>
-                        <span class="text-sm text-gray-900 dark:text-white">${staff.position}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Email:</span>
-                        <span class="text-sm text-gray-900 dark:text-white break-all">${staff.email}</span>
-                    </div>
-                    ${staff.salary ? `
-                    <div class="flex justify-between">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">Salary:</span>
-                        <span class="text-sm text-gray-900 dark:text-white">$${Number(staff.salary).toLocaleString()}</span>
-                    </div>
-                    ` : ''}
-                </div>
-                
-                <div class="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <button onclick="window.staffManager.openStaffModal('${staff.id}')" 
-                            class="bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors touch-target">
-                        ✏️ Edit
-                    </button>
-                    <button onclick="window.staffManager.deleteStaff('${staff.id}')" 
-                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors touch-target">
-                        🗑️ Delete
-                    </button>
                 </div>
             </div>
         `;
