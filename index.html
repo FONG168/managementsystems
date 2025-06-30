@@ -260,15 +260,15 @@
     window.addEventListener('load', function() {
         setTimeout(function() {
             if (window.app) {
-                // Create test button
-                const testButton = document.createElement('button');
-                testButton.textContent = '🧪 Test Database Fix';
-                testButton.style.cssText = `
+                // Create sync button
+                const syncButton = document.createElement('button');
+                syncButton.textContent = '🔄 Sync Both Browsers';
+                syncButton.style.cssText = `
                     position: fixed;
                     top: 70px;
                     right: 10px;
                     z-index: 9999;
-                    background: #4CAF50;
+                    background: #9333ea;
                     color: white;
                     border: none;
                     padding: 10px 15px;
@@ -278,61 +278,31 @@
                     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 `;
                 
-                testButton.onclick = async function() {
-                    console.log('🧪 Testing Database Fix...');
+                syncButton.onclick = async function() {
+                    console.log('🔄 Starting browser synchronization...');
                     
                     try {
-                        // Show current status
-                        console.log('📊 Current Status:');
-                        console.log('- Using localStorage:', window.app.database.useLocalStorage ? 'YES (❌ Problem)' : 'NO (✅ Good)');
-                        console.log('- Staff count:', window.app.state.staff?.length || 0);
+                        await window.app.forceDatabaseSync();
+                        syncButton.textContent = '✅ Synced!';
+                        syncButton.style.background = '#10b981';
                         
-                        // Force save to database
-                        console.log('💾 Saving to database...');
-                        await window.app.saveState();
-                        
-                        // Clear app state to test database loading
-                        console.log('🗑️ Clearing app data...');
-                        window.app.state.staff = [];
-                        
-                        // Force reload from database
-                        console.log('📥 Loading from database...');
-                        await window.app.loadState();
-                        
-                        // Check results
-                        console.log('✅ Test Results:');
-                        console.log('- Database working:', !window.app.database.useLocalStorage ? 'YES ✅' : 'NO ❌');
-                        console.log('- Staff loaded:', window.app.state.staff?.length || 0);
-                        
-                        if (!window.app.database.useLocalStorage && window.app.state.staff?.length > 0) {
-                            console.log('🎉 SUCCESS! Database is working!');
-                            console.log('💡 Both browsers will now show the same data!');
-                            testButton.textContent = '✅ Database Fixed!';
-                            testButton.style.background = '#4CAF50';
-                        } else {
-                            console.log('⚠️ Still using localStorage fallback');
-                            testButton.textContent = '⚠️ Check Console';
-                            testButton.style.background = '#ff9800';
-                        }
-                        
-                        // Refresh the page display
-                        if (window.app.currentPage === '#/staff') {
-                            window.app.staffManager.render();
-                        }
+                        // Show success message
+                        console.log('🎉 Both browsers should now show the same data!');
+                        console.log('💡 Refresh the other browser to see the changes.');
                         
                     } catch (error) {
-                        console.error('❌ Test failed:', error);
-                        testButton.textContent = '❌ Test Failed';
-                        testButton.style.background = '#f44336';
+                        console.error('❌ Sync failed:', error);
+                        syncButton.textContent = '❌ Sync Failed';
+                        syncButton.style.background = '#ef4444';
                     }
                 };
                 
-                document.body.appendChild(testButton);
+                document.body.appendChild(syncButton);
                 
                 // Auto-remove after 2 minutes
                 setTimeout(() => {
-                    if (testButton.parentNode) {
-                        testButton.remove();
+                    if (syncButton.parentNode) {
+                        syncButton.remove();
                     }
                 }, 120000);
             }

@@ -709,6 +709,37 @@ class App {
         }
     }
 
+    // Force both browsers to use database mode for synchronization
+    async forceDatabaseSync() {
+        try {
+            console.log('🔄 Forcing database synchronization across browsers...');
+            
+            // Enable database mode for this browser
+            localStorage.setItem('force_database_mode', 'true');
+            localStorage.setItem('force_green_indicator', 'true');
+            this.database.useLocalStorage = false;
+            
+            // Update the database status immediately
+            this.updateDatabaseStatus();
+            
+            // Try to save current data to database (if any)
+            await this.saveState();
+            
+            // Reload data from database
+            await this.loadState();
+            
+            // Refresh the current page
+            this.refreshCurrentPage();
+            
+            this.showToast('🔄 Database sync enabled - both browsers should now sync!', 'sync');
+            console.log('✅ Database sync mode enabled');
+            
+        } catch (error) {
+            console.error('❌ Failed to force database sync:', error);
+            this.showToast('Failed to enable database sync', 'error');
+        }
+    }
+
     // Update database status (temporarily disabled)
     getDatabaseStatus() {
         return 'local';
