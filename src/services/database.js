@@ -25,6 +25,7 @@ class DatabaseService {
     async initialize() {
         try {
             console.log('🔍 Database initialize: Attempting auto-sync connection...');
+            console.log('🔗 API URL:', this.apiUrl);
             
             // Always try to enable API sync first
             console.log('🔄 Testing API connection for auto-sync...');
@@ -38,6 +39,7 @@ class DatabaseService {
                 this.isOffline = false;
                 this.consecutiveFailures = 0;
                 console.log('✅ API sync mode enabled - automatic multi-browser sync active');
+                console.log('🔧 useLocalStorage set to:', this.useLocalStorage);
                 
                 // Start automatic sync polling
                 this.startAutoSync();
@@ -73,31 +75,42 @@ class DatabaseService {
 
     async testConnection() {
         try {
-            console.log('🧪 Testing API connection...');
+            console.log('🧪 Testing API connection to:', this.apiUrl);
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // Increase timeout to 8 seconds
             
             const response = await fetch(this.apiUrl, {
+                method: 'GET',
                 signal: controller.signal,
                 headers: {
-                    'Cache-Control': 'no-cache'
+                    'Cache-Control': 'no-cache',
+                    'Accept': 'application/json'
                 }
             });
             
             clearTimeout(timeoutId);
-            const data = await response.json();
+            console.log('📡 API Response status:', response.status);
             
-            if (response.ok && data.success) {
+            if (!response.ok) {
+                console.error('❌ API response not OK:', response.status, response.statusText);
+                this.consecutiveFailures++;
+                return false;
+            }
+            
+            const data = await response.json();
+            console.log('📦 API Response data:', data);
+            
+            if (data && data.success !== false) {
                 console.log('✅ API connection successful');
                 this.consecutiveFailures = 0;
                 return true;
             } else {
-                console.error('❌ API connection test failed:', data);
+                console.error('❌ API connection test failed - invalid response:', data);
                 this.consecutiveFailures++;
                 return false;
             }
         } catch (error) {
-            console.error('❌ API connection test failed:', error);
+            console.error('❌ API connection test failed with error:', error.name, error.message);
             this.consecutiveFailures++;
             return false;
         }
@@ -546,7 +559,15 @@ class DatabaseService {
     }
 
     getConnectionStatus() {
+        console.log('🔍 Connection Status Check:', {
+            useLocalStorage: this.useLocalStorage,
+            isConfigured: this.isConfigured,
+            isOffline: this.isOffline,
+            consecutiveFailures: this.consecutiveFailures
+        });
+        
         if (!this.useLocalStorage && this.isConfigured && !this.isOffline) {
+            console.log('📊 Returning status: connected');
             return {
                 status: 'connected',
                 lastSync: this.lastSyncTime,
@@ -554,6 +575,7 @@ class DatabaseService {
                 consecutiveFailures: this.consecutiveFailures
             };
         } else if (!this.useLocalStorage && this.isOffline) {
+            console.log('📊 Returning status: reconnecting');
             return {
                 status: 'reconnecting',
                 lastSync: this.lastSyncTime,
@@ -561,6 +583,7 @@ class DatabaseService {
                 consecutiveFailures: this.consecutiveFailures
             };
         } else if (!this.useLocalStorage) {
+            console.log('📊 Returning status: error');
             return {
                 status: 'error',
                 lastSync: this.lastSyncTime,
@@ -568,6 +591,7 @@ class DatabaseService {
                 consecutiveFailures: this.consecutiveFailures
             };
         } else {
+            console.log('📊 Returning status: local');
             return {
                 status: 'local',
                 lastSync: null,
