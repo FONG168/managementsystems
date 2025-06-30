@@ -220,7 +220,7 @@ export default class DatabaseConfig {
         switch (status) {
             case 'connected': return 'bg-green-500';
             case 'error': return 'bg-red-500';
-            default: return 'bg-yellow-500';
+            default: return 'bg-green-500'; // Local storage is working fine
         }
     }
 
@@ -229,7 +229,7 @@ export default class DatabaseConfig {
         switch (status) {
             case 'connected': return 'Connected to Database';
             case 'error': return 'Database Error (using local storage)';
-            default: return 'Using Local Storage';
+            default: return 'Local Storage Ready';
         }
     }
 
