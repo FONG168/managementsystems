@@ -719,24 +719,39 @@ class App {
             localStorage.setItem('force_green_indicator', 'true');
             this.database.useLocalStorage = false;
             
+            // Re-initialize database connection
+            await this.database.initialize();
+            
             // Update the database status immediately
             this.updateDatabaseStatus();
             
-            // Try to save current data to API (if any)
-            await this.saveState();
+            // First, check if we have any local data to save
+            const hasLocalStaff = this.state.staff && this.state.staff.length > 0;
+            const hasLocalLogs = this.state.logs && Object.keys(this.state.logs).length > 0;
             
-            // Reload data from API
+            console.log(`📊 Local data: ${this.state.staff?.length || 0} staff, ${Object.keys(this.state.logs || {}).length} log months`);
+            
+            // Save current local data to API first (if we have any)
+            if (hasLocalStaff || hasLocalLogs) {
+                console.log('💾 Saving local data to API...');
+                await this.saveState();
+            }
+            
+            // Now reload data from API (this will get data from other browsers too)
+            console.log('📥 Loading data from API...');
             await this.loadState();
             
-            // Refresh the current page
+            console.log(`📊 After sync: ${this.state.staff?.length || 0} staff, ${Object.keys(this.state.logs || {}).length} log months`);
+            
+            // Refresh the current page to show updated data
             this.refreshCurrentPage();
             
-            this.showToast('🔄 Browser sync enabled - both browsers should now sync!', 'sync');
-            console.log('✅ API sync mode enabled');
+            this.showToast('🔄 Browser sync enabled - data synchronized!', 'sync');
+            console.log('✅ API sync mode enabled and data synchronized');
             
         } catch (error) {
             console.error('❌ Failed to force sync:', error);
-            this.showToast('Failed to enable browser sync', 'error');
+            this.showToast('Failed to enable browser sync: ' + error.message, 'error');
         }
     }
 
@@ -1077,6 +1092,43 @@ class App {
                 }, 300);
             }
         }, 5000);
+    }
+
+    // Force refresh data from API (for other browsers to get updates)
+    async forceRefreshFromAPI() {
+        try {
+            if (!this.database.isUsingDatabase()) {
+                console.log('⚠️ Not in sync mode, skipping API refresh');
+                return false;
+            }
+            
+            console.log('🔄 Force refreshing data from API...');
+            
+            // Temporarily enable API mode to force reload
+            const wasUsingLocal = this.database.useLocalStorage;
+            this.database.useLocalStorage = false;
+            
+            // Load fresh data from API
+            const freshStaff = await this.database.loadStaff();
+            const freshLogs = await this.database.loadLogs();
+            
+            // Restore original mode
+            this.database.useLocalStorage = wasUsingLocal;
+            
+            // Update local state
+            this.state.staff = freshStaff || [];
+            this.state.logs = freshLogs || {};
+            
+            console.log(`📊 Refreshed from API: ${this.state.staff.length} staff, ${Object.keys(this.state.logs).length} log months`);
+            
+            // Refresh current page to show new data
+            this.refreshCurrentPage();
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to refresh from API:', error);
+            return false;
+        }
     }
 }
 
