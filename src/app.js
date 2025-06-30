@@ -991,6 +991,62 @@ class App {
             this.showToast('Failed to reset application', 'error');
         }
     }
+
+    // Toast notification system
+    showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `
+            max-w-sm w-full bg-white dark:bg-gray-800 shadow-lg rounded-lg pointer-events-auto 
+            flex ring-1 ring-black ring-opacity-5 transform transition-all duration-300 ease-in-out
+            ${type === 'success' ? 'border-l-4 border-green-400' : ''}
+            ${type === 'error' ? 'border-l-4 border-red-400' : ''}
+            ${type === 'info' ? 'border-l-4 border-blue-400' : ''}
+            ${type === 'sync' ? 'border-l-4 border-purple-400' : ''}
+        `.trim();
+        
+        const icon = type === 'success' ? '✅' : 
+                    type === 'error' ? '❌' : 
+                    type === 'sync' ? '🔄' : 'ℹ️';
+        
+        toast.innerHTML = `
+            <div class="flex-1 w-0 p-4">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <span class="text-lg">${icon}</span>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                            ${message}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex border-l border-gray-200 dark:border-gray-600">
+                <button onclick="this.parentElement.parentElement.remove()" 
+                        class="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none">
+                    ×
+                </button>
+            </div>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.transform = 'translateX(100%)';
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
 }
 
 // Export the App class as default
