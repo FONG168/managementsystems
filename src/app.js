@@ -448,7 +448,6 @@ class App {
                 this.state.staff = [];
                 this.state.logs = {};
                 console.log('📋 loadState: No data found - starting with empty state');
-                this.showToast('No existing data found - ready for real data entry', 'info');
             }
             
             // Apply theme
