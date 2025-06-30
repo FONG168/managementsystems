@@ -60,10 +60,6 @@ export class StaffManager {
                                 <span class="sm:hidden">💾</span>
                                 <span class="hidden sm:inline">💾 Export</span>
                             </button>
-                            <button id="load-sample-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base touch-target">
-                                <span class="sm:hidden">📋</span>
-                                <span class="hidden sm:inline">📋 Sample Data</span>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -112,15 +108,12 @@ export class StaffManager {
 
                     <!-- Empty State -->
                     <div id="empty-state" class="hidden text-center py-8 sm:py-12 px-4">
-                        <div class="text-gray-400 text-4xl sm:text-6xl mb-4">🆕</div>
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ready for Real Data Entry!</h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-4 text-sm sm:text-base max-w-md mx-auto">No sample data loaded. Start by adding your first real staff member, or load sample data for testing.</p>
-                        <div class="flex flex-col sm:flex-row justify-center gap-3">
+                        <div class="text-8xl mb-4">🏢</div>
+                        <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">Ready for Real Data Entry!</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-4 text-sm sm:text-base max-w-md mx-auto">No staff members found. Start by adding your first real staff member.</p>
+                        <div class="flex justify-center">
                             <button id="add-first-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-3 rounded-lg font-medium transition-colors touch-target">
                                 ➕ Add First Staff Member
-                            </button>
-                            <button id="load-sample-empty-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg font-medium transition-colors touch-target">
-                                📋 Load Sample Data
                             </button>
                         </div>
                     </div>
@@ -180,17 +173,17 @@ export class StaffManager {
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-                                        <input type="tel" id="staff-phone" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target">
+                                        <input type="tel" id="staff-phone" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target">
                                         <div class="text-red-500 text-xs mt-1 hidden" id="phone-error"></div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date *</label>
-                                        <input type="date" id="staff-start-date" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
+                                        <input type="date" id="staff-start-date" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                         <div class="text-red-500 text-xs mt-1 hidden" id="start-date-error"></div>
                                     </div>
                                     <div class="md:col-span-2">
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Annual Salary</label>
-                                        <input type="number" id="staff-salary" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" min="0" step="0.01">
+                                        <input type="number" id="staff-salary" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" min="0" step="0.01">
                                         <div class="text-red-500 text-xs mt-1 hidden" id="salary-error"></div>
                                     </div>
                                 </div>
@@ -237,16 +230,6 @@ export class StaffManager {
         // Export button
         document.getElementById('export-staff-btn').addEventListener('click', () => {
             this.exportStaff();
-        });
-
-        // Sample data button
-        document.getElementById('load-sample-btn').addEventListener('click', () => {
-            this.app.loadSampleDataManually();
-        });
-
-        // Load sample data from empty state
-        document.getElementById('load-sample-empty-btn').addEventListener('click', () => {
-            this.app.loadSampleDataManually();
         });
 
         // Table sorting
