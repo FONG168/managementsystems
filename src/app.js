@@ -555,8 +555,8 @@ class App {
                     break;
                 case 'local':
                 default:
-                    statusElement.textContent = '🟡 Local';
-                    statusElement.title = 'Using local storage - data not synced across browsers';
+                    statusElement.textContent = '� Local';
+                    statusElement.title = 'Local storage ready - data saved locally';
                     break;
             }
         }
