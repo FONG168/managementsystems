@@ -681,11 +681,11 @@ class App {
         if (statusElement) {
             // Check for forced green indicator
             const forceGreen = localStorage.getItem('force_green_indicator') === 'true';
-            const forceDatabaseMode = localStorage.getItem('force_database_mode') === 'true';
+            const forceSyncMode = localStorage.getItem('force_sync_mode') === 'true';
             
-            if (forceGreen || forceDatabaseMode) {
+            if (forceGreen || forceSyncMode) {
                 statusElement.textContent = '🟢 Database';
-                statusElement.title = 'Connected to database (forced mode)';
+                statusElement.title = 'Connected to API sync (forced mode)';
                 return;
             }
             
@@ -694,11 +694,11 @@ class App {
             switch (status) {
                 case 'connected':
                     statusElement.textContent = '🟢 Database';
-                    statusElement.title = 'Connected to database';
+                    statusElement.title = 'Connected to API sync';
                     break;
                 case 'error':
                     statusElement.textContent = '🔴 Error';
-                    statusElement.title = 'Database connection error';
+                    statusElement.title = 'API sync connection error';
                     break;
                 case 'local':
                 default:
@@ -709,34 +709,34 @@ class App {
         }
     }
 
-    // Force both browsers to use database mode for synchronization
+    // Force both browsers to use sync mode for synchronization
     async forceDatabaseSync() {
         try {
-            console.log('🔄 Forcing database synchronization across browsers...');
+            console.log('🔄 Forcing API synchronization across browsers...');
             
-            // Enable database mode for this browser
-            localStorage.setItem('force_database_mode', 'true');
+            // Enable sync mode for this browser
+            localStorage.setItem('force_sync_mode', 'true');
             localStorage.setItem('force_green_indicator', 'true');
             this.database.useLocalStorage = false;
             
             // Update the database status immediately
             this.updateDatabaseStatus();
             
-            // Try to save current data to database (if any)
+            // Try to save current data to API (if any)
             await this.saveState();
             
-            // Reload data from database
+            // Reload data from API
             await this.loadState();
             
             // Refresh the current page
             this.refreshCurrentPage();
             
-            this.showToast('🔄 Database sync enabled - both browsers should now sync!', 'sync');
-            console.log('✅ Database sync mode enabled');
+            this.showToast('🔄 Browser sync enabled - both browsers should now sync!', 'sync');
+            console.log('✅ API sync mode enabled');
             
         } catch (error) {
-            console.error('❌ Failed to force database sync:', error);
-            this.showToast('Failed to enable database sync', 'error');
+            console.error('❌ Failed to force sync:', error);
+            this.showToast('Failed to enable browser sync', 'error');
         }
     }
 
