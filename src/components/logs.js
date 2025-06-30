@@ -59,32 +59,35 @@ export class LogsManager {
 
     getTemplate() {
         return `
-            <div class="max-w-full mx-auto p-4 sm:p-6 lg:p-8">
+            <div class="max-w-full mx-auto p-3 sm:p-4 lg:p-6">
                 <!-- Header -->
-                <div class="mb-8">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                <div class="mb-6 sm:mb-8">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                         📝 Daily Activity Logs
                     </h1>
-                    <p class="text-gray-600 dark:text-gray-400">
+                    <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                         Track daily activities with Excel-style editing. Click any cell to edit values.
                     </p>
                 </div>
 
                 <!-- Controls -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mb-6">
                     <!-- View Mode Filter -->
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 pb-4 border-b border-gray-200 dark:border-gray-600">
+                    <div class="flex flex-col lg:flex-row items-start lg:items-center gap-4 mb-6 pb-4 border-b border-gray-200 dark:border-gray-600">
                         <div class="flex flex-col">
                             <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">View Mode</label>
                             <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                                <button id="view-daily" class="view-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-colors" data-mode="daily">
-                                    📅 Daily
+                                <button id="view-daily" class="view-mode-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors touch-target" data-mode="daily">
+                                    <span class="sm:hidden">📅</span>
+                                    <span class="hidden sm:inline">📅 Daily</span>
                                 </button>
-                                <button id="view-weekly" class="view-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-colors" data-mode="weekly">
-                                    📊 Weekly
+                                <button id="view-weekly" class="view-mode-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors touch-target" data-mode="weekly">
+                                    <span class="sm:hidden">📊</span>
+                                    <span class="hidden sm:inline">📊 Weekly</span>
                                 </button>
-                                <button id="view-monthly" class="view-mode-btn px-4 py-2 text-sm font-medium rounded-md transition-colors" data-mode="monthly">
-                                    📈 Monthly
+                                <button id="view-monthly" class="view-mode-btn px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors touch-target" data-mode="monthly">
+                                    <span class="sm:hidden">📈</span>
+                                    <span class="hidden sm:inline">📈 Monthly</span>
                                 </button>
                             </div>
                         </div>
@@ -100,56 +103,60 @@ export class LogsManager {
                     </div>
 
                     <!-- Staff Selection and Month/Year -->
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                    <div class="flex flex-col space-y-4 mb-6">
                         <!-- Staff Selection -->
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div class="flex flex-col">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Staff Member</label>
-                                <select id="staff-filter" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 min-w-48">
+                                <select id="staff-filter" class="px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 text-sm sm:text-base touch-target">
                                     <option value="">All Staff</option>
                                     <!-- Staff options will be populated -->
                                 </select>
                             </div>
+                            
                             <div class="flex flex-col">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Month/Year</label>
-                                <div class="flex items-center space-x-2">
-                                    <button id="prev-month" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
+                                    <button id="prev-month" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors touch-target">
+                                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                                         </svg>
                                     </button>
-                                    <div class="text-center min-w-40">
-                                        <h2 id="current-month-year" class="text-lg font-semibold text-gray-900 dark:text-white"></h2>
+                                    <div class="text-center flex-1 px-2">
+                                        <h2 id="current-month-year" class="text-sm sm:text-lg font-semibold text-gray-900 dark:text-white whitespace-nowrap"></h2>
                                     </div>
-                                    <button id="next-month" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <button id="next-month" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors touch-target">
+                                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                         </svg>
                                     </button>
                                 </div>
                             </div>
+                            
                             <div class="flex flex-col">
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jump to Date</label>
                                 <div class="flex items-center space-x-2">
                                     <input 
                                         type="date" 
                                         id="date-picker" 
-                                        class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 text-sm"
+                                        class="flex-1 px-3 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 text-sm touch-target"
                                         title="Select specific date to view"
                                     >
                                     <button 
                                         id="yesterday-btn" 
-                                        class="px-3 py-2 text-sm bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors"
+                                        class="px-2 sm:px-3 py-2 text-xs sm:text-sm bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900 dark:hover:bg-yellow-800 text-yellow-700 dark:text-yellow-300 rounded-lg font-medium transition-colors touch-target"
                                         title="Go to yesterday"
                                     >
-                                        📅 Yesterday
+                                        <span class="sm:hidden">📅</span>
+                                        <span class="hidden sm:inline">📅 Yesterday</span>
                                     </button>
                                     <button 
                                         id="today-btn" 
-                                        class="px-3 py-2 text-sm bg-primary-100 hover:bg-primary-200 dark:bg-primary-900 dark:hover:bg-primary-800 text-primary-700 dark:text-primary-300 rounded-lg font-medium transition-colors"
+                                        class="px-2 sm:px-3 py-2 text-xs sm:text-sm bg-primary-100 hover:bg-primary-200 dark:bg-primary-900 dark:hover:bg-primary-800 text-primary-700 dark:text-primary-300 rounded-lg font-medium transition-colors touch-target"
                                         title="Go to today"
                                     >
-                                        📅 Today
+                                        <span class="sm:hidden">📅</span>
+                                        <span class="hidden sm:inline">📅 Today</span>
                                     </button>
                                 </div>
                             </div>
@@ -157,11 +164,13 @@ export class LogsManager {
 
                         <!-- Action Buttons -->
                         <div class="flex flex-wrap gap-2">
-                            <button id="export-logs-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors">
-                                💾 Export Month
+                            <button id="export-logs-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base touch-target">
+                                <span class="sm:hidden">💾</span>
+                                <span class="hidden sm:inline">💾 Export Month</span>
                             </button>
-                            <button id="clear-month-btn" class="bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg font-medium transition-colors">
-                                🗑️ Clear Month
+                            <button id="clear-month-btn" class="bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-700 dark:text-red-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base touch-target">
+                                <span class="sm:hidden">🗑️</span>
+                                <span class="hidden sm:inline">🗑️ Clear Month</span>
                             </button>
                         </div>
                     </div>
@@ -564,25 +573,75 @@ export class LogsManager {
                     font-size: inherit;
                     color: inherit;
                 }
+                
+                /* Mobile Responsive Grid Styles */
+                @media (max-width: 768px) {
+                    .logs-grid {
+                        font-size: 0.75rem;
+                    }
+                    
+                    .grid-cell {
+                        min-width: 50px !important;
+                        width: 50px !important;
+                        height: 40px !important;
+                        padding: 4px !important;
+                        font-size: 0.75rem !important;
+                    }
+                    
+                    .activity-name-cell {
+                        min-width: 150px !important;
+                        width: 150px !important;
+                        font-size: 0.75rem !important;
+                        padding: 6px !important;
+                    }
+                    
+                    .staff-name-cell {
+                        height: 40px !important;
+                        padding: 4px !important;
+                        font-size: 0.75rem !important;
+                    }
+                    
+                    .header-cell {
+                        font-size: 0.7rem !important;
+                        padding: 4px !important;
+                    }
+                }
+                
+                @media (max-width: 640px) {
+                    .grid-cell {
+                        min-width: 45px !important;
+                        width: 45px !important;
+                        height: 36px !important;
+                        padding: 2px !important;
+                        font-size: 0.7rem !important;
+                    }
+                    
+                    .activity-name-cell {
+                        min-width: 120px !important;
+                        width: 120px !important;
+                        font-size: 0.7rem !important;
+                        padding: 4px !important;
+                    }
+                }
             </style>
             
             <!-- Staff Activity Details Modal -->
-            <div id="staff-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-5xl w-full max-h-screen overflow-hidden">
+            <div id="staff-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-2 sm:p-4">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-5xl w-full max-h-[95vh] overflow-hidden mobile-modal">
                     <!-- Header -->
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                                     📊 Staff Activity Details
                                 </h3>
-                                <div class="flex items-center mt-1 space-x-4">
+                                <div class="flex flex-col sm:flex-row sm:items-center mt-1 space-y-1 sm:space-y-0 sm:space-x-4">
                                     <span id="modal-staff-info" class="text-sm text-gray-600 dark:text-gray-400"></span>
                                     <span id="modal-date-info" class="text-sm font-medium text-primary-600 dark:text-primary-400"></span>
                                 </div>
                             </div>
-                            <button onclick="window.closeStaffModalFromLogs()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <button onclick="window.closeStaffModalFromLogs()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 touch-target">
+                                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
                             </button>

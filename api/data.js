@@ -55,6 +55,35 @@ async function handleGet(req, res) {
                 data: sharedData.logs,
                 lastUpdated: sharedData.lastUpdated
             });
+        } else if (type === 'hash') {
+            // Return a more reliable hash of the data for change detection
+            const staffLength = sharedData.staff ? sharedData.staff.length : 0;
+            const logsKeys = sharedData.logs ? Object.keys(sharedData.logs).length : 0;
+            const dataString = JSON.stringify({
+                staffCount: staffLength,
+                logsCount: logsKeys,
+                lastUpdated: sharedData.lastUpdated
+            });
+            
+            // Create a simple but reliable hash
+            let hash = 0;
+            for (let i = 0; i < dataString.length; i++) {
+                const char = dataString.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            
+            const finalHash = `${Math.abs(hash)}_${staffLength}_${logsKeys}_${sharedData.lastUpdated}`;
+            
+            res.status(200).json({ 
+                success: true,
+                hash: finalHash,
+                lastUpdated: sharedData.lastUpdated,
+                metadata: {
+                    staffCount: staffLength,
+                    logsCount: logsKeys
+                }
+            });
         } else {
             // Return all data
             res.status(200).json({ 
@@ -74,33 +103,57 @@ async function handlePost(req, res) {
     try {
         const { type, data } = req.body;
         
-        if (!type || !data) {
-            return res.status(400).json({ error: 'Missing type or data' });
+        if (!type || data === undefined) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Missing type or data in request body' 
+            });
         }
         
         if (type === 'staff') {
+            if (!Array.isArray(data)) {
+                return res.status(400).json({ 
+                    success: false,
+                    error: 'Staff data must be an array' 
+                });
+            }
+            
             sharedData.staff = data;
             sharedData.lastUpdated = new Date().toISOString();
             res.status(200).json({ 
                 success: true,
-                message: 'Staff data synchronized',
+                message: 'Staff data synchronized successfully',
                 count: data.length,
                 lastUpdated: sharedData.lastUpdated
             });
         } else if (type === 'logs') {
+            if (typeof data !== 'object' || data === null) {
+                return res.status(400).json({ 
+                    success: false,
+                    error: 'Logs data must be an object' 
+                });
+            }
+            
             sharedData.logs = data;
             sharedData.lastUpdated = new Date().toISOString();
             res.status(200).json({ 
                 success: true,
-                message: 'Logs data synchronized',
+                message: 'Logs data synchronized successfully',
+                logCount: Object.keys(data).length,
                 lastUpdated: sharedData.lastUpdated
             });
         } else {
-            res.status(400).json({ error: 'Invalid data type' });
+            res.status(400).json({ 
+                success: false,
+                error: `Invalid data type: ${type}. Supported types: staff, logs` 
+            });
         }
     } catch (error) {
         console.error('POST Error:', error);
-        res.status(500).json({ error: 'Failed to save data' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Internal server error while saving data' 
+        });
     }
 }
 

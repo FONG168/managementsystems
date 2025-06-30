@@ -21,29 +21,29 @@ export class StaffManager {
 
     getTemplate() {
         return `
-            <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+            <div class="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6">
                 <!-- Header -->
-                <div class="mb-8">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                <div class="mb-6 sm:mb-8">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
                         👥 Staff Management
                     </h1>
-                    <p class="text-gray-600 dark:text-gray-400">
+                    <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                         Manage employee information, add new staff, and maintain records.
                     </p>
                 </div>
 
                 <!-- Action Bar -->
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 mb-6">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <!-- Search -->
                         <div class="flex-1 max-w-md">
                             <div class="relative">
                                 <input type="text" id="staff-search" placeholder="Search staff by name or ID..."
-                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
-                                           focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    class="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg
+                                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm sm:text-base
+                                           focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target">
                                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg class="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
                                 </div>
@@ -52,14 +52,17 @@ export class StaffManager {
 
                         <!-- Action Buttons -->
                         <div class="flex flex-wrap gap-2">
-                            <button id="add-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                                ➕ Add Staff
+                            <button id="add-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base touch-target">
+                                <span class="sm:hidden">➕</span>
+                                <span class="hidden sm:inline">➕ Add Staff</span>
                             </button>
-                            <button id="export-staff-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors">
-                                💾 Export
+                            <button id="export-staff-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base touch-target">
+                                <span class="sm:hidden">💾</span>
+                                <span class="hidden sm:inline">💾 Export</span>
                             </button>
-                            <button id="load-sample-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors">
-                                📋 Sample Data
+                            <button id="load-sample-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm sm:text-base touch-target">
+                                <span class="sm:hidden">📋</span>
+                                <span class="hidden sm:inline">📋 Sample Data</span>
                             </button>
                         </div>
                     </div>
@@ -67,32 +70,33 @@ export class StaffManager {
 
                 <!-- Staff Table -->
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div class="overflow-x-auto">
+                    <!-- Desktop Table View -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table id="staff-table" class="w-full min-w-full">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="id">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="id">
                                         ID <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="name">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="name">
                                         Name <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="department">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable lg:table-cell hidden" data-field="department">
                                         Department <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="position">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable lg:table-cell hidden" data-field="position">
                                         Position <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="email">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable xl:table-cell hidden" data-field="email">
                                         Email <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="salary">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable xl:table-cell hidden" data-field="salary">
                                         Salary <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="active">
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer sortable" data-field="active">
                                         Status <span class="sort-icon ml-1">↕️</span>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                    <th class="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="staff-table-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -101,16 +105,21 @@ export class StaffManager {
                         </table>
                     </div>
 
+                    <!-- Mobile Card View -->
+                    <div class="md:hidden" id="staff-mobile-view">
+                        <!-- Mobile staff cards will be populated here -->
+                    </div>
+
                     <!-- Empty State -->
-                    <div id="empty-state" class="hidden text-center py-12">
-                        <div class="text-gray-400 text-6xl mb-4">🆕</div>
+                    <div id="empty-state" class="hidden text-center py-8 sm:py-12 px-4">
+                        <div class="text-gray-400 text-4xl sm:text-6xl mb-4">🆕</div>
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Ready for Real Data Entry!</h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-4">No sample data loaded. Start by adding your first real staff member, or load sample data for testing.</p>
-                        <div class="flex justify-center gap-3">
-                            <button id="add-first-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        <p class="text-gray-500 dark:text-gray-400 mb-4 text-sm sm:text-base max-w-md mx-auto">No sample data loaded. Start by adding your first real staff member, or load sample data for testing.</p>
+                        <div class="flex flex-col sm:flex-row justify-center gap-3">
+                            <button id="add-first-staff-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-3 rounded-lg font-medium transition-colors touch-target">
                                 ➕ Add First Staff Member
                             </button>
-                            <button id="load-sample-empty-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors">
+                            <button id="load-sample-empty-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg font-medium transition-colors touch-target">
                                 📋 Load Sample Data
                             </button>
                         </div>
@@ -119,13 +128,13 @@ export class StaffManager {
 
                 <!-- Staff Modal -->
                 <div id="staff-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div class="p-6">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 id="modal-title" class="text-xl font-bold text-gray-900 dark:text-white">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto mobile-modal">
+                        <div class="p-4 sm:p-6">
+                            <div class="flex justify-between items-center mb-4 sm:mb-6">
+                                <h2 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                                     Add New Staff Member
                                 </h2>
-                                <button id="close-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                <button id="close-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 touch-target">
                                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
@@ -136,17 +145,17 @@ export class StaffManager {
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Employee ID *</label>
-                                        <input type="text" id="staff-id" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                                        <input type="text" id="staff-id" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                         <div class="text-red-500 text-xs mt-1 hidden" id="id-error"></div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
-                                        <input type="text" id="staff-name" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                                        <input type="text" id="staff-name" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                         <div class="text-red-500 text-xs mt-1 hidden" id="name-error"></div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department *</label>
-                                        <select id="staff-department" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                                        <select id="staff-department" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                             <option value="">Select Department</option>
                                             <option value="Customer Service">Customer Service</option>
                                             <option value="Sales">Sales</option>
@@ -161,41 +170,41 @@ export class StaffManager {
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position *</label>
-                                        <input type="text" id="staff-position" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                                        <input type="text" id="staff-position" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                         <div class="text-red-500 text-xs mt-1 hidden" id="position-error"></div>
                                     </div>
-                                    <div>
+                                    <div class="md:col-span-2">
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                                        <input type="email" id="staff-email" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                                        <input type="email" id="staff-email" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                         <div class="text-red-500 text-xs mt-1 hidden" id="email-error"></div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
-                                        <input type="tel" id="staff-phone" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <input type="tel" id="staff-phone" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target">
                                         <div class="text-red-500 text-xs mt-1 hidden" id="phone-error"></div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date *</label>
-                                        <input type="date" id="staff-start-date" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                                        <input type="date" id="staff-start-date" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" required>
                                         <div class="text-red-500 text-xs mt-1 hidden" id="start-date-error"></div>
                                     </div>
-                                    <div>
+                                    <div class="md:col-span-2">
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Annual Salary</label>
-                                        <input type="number" id="staff-salary" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" min="0" step="0.01">
+                                        <input type="number" id="staff-salary" class="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent touch-target" min="0" step="0.01">
                                         <div class="text-red-500 text-xs mt-1 hidden" id="salary-error"></div>
                                     </div>
                                 </div>
 
-                                <div class="flex items-center">
-                                    <input type="checkbox" id="staff-active" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded mr-2" checked>
+                                <div class="flex items-center pt-2">
+                                    <input type="checkbox" id="staff-active" class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded mr-3" checked>
                                     <label for="staff-active" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Active Employee</label>
                                 </div>
 
-                                <div class="flex justify-end gap-3 pt-6">
-                                    <button type="button" id="cancel-btn" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors">
+                                <div class="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                    <button type="button" id="cancel-btn" class="w-full sm:w-auto bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg font-medium transition-colors touch-target">
                                         Cancel
                                     </button>
-                                    <button type="submit" id="save-btn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                                    <button type="submit" id="save-btn" class="w-full sm:w-auto bg-primary-600 hover:bg-primary-700 text-white px-4 py-3 rounded-lg font-medium transition-colors touch-target">
                                         Save Staff Member
                                     </button>
                                 </div>
@@ -271,16 +280,25 @@ export class StaffManager {
     renderStaffTable() {
         const staff = this.getFilteredAndSortedStaff();
         const tbody = document.getElementById('staff-table-body');
+        const mobileView = document.getElementById('staff-mobile-view');
         const emptyState = document.getElementById('empty-state');
 
         if (staff.length === 0) {
             tbody.innerHTML = '';
+            mobileView.innerHTML = '';
             emptyState.classList.remove('hidden');
-            document.getElementById('staff-table').style.display = 'none';
+            document.getElementById('staff-table').parentElement.style.display = 'none';
+            mobileView.style.display = 'none';
         } else {
             emptyState.classList.add('hidden');
-            document.getElementById('staff-table').style.display = 'table';
+            document.getElementById('staff-table').parentElement.style.display = 'block';
+            mobileView.style.display = 'block';
+            
+            // Render desktop table
             tbody.innerHTML = staff.map(member => this.createStaffRow(member)).join('');
+            
+            // Render mobile cards
+            mobileView.innerHTML = staff.map(member => this.createStaffCard(member)).join('');
         }
 
         this.updateSortIcons();
@@ -324,6 +342,54 @@ export class StaffManager {
                     </div>
                 </td>
             </tr>
+        `;
+    }
+
+    createStaffCard(staff) {
+        return `
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-3 shadow-sm">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-semibold text-gray-900 dark:text-white">${staff.name}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">ID: ${staff.id}</p>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${staff.active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}">
+                        ${staff.active ? '✅ Active' : '❌ Inactive'}
+                    </span>
+                </div>
+                
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Department:</span>
+                        <span class="text-sm text-gray-900 dark:text-white">${staff.department}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Position:</span>
+                        <span class="text-sm text-gray-900 dark:text-white">${staff.position}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Email:</span>
+                        <span class="text-sm text-gray-900 dark:text-white break-all">${staff.email}</span>
+                    </div>
+                    ${staff.salary ? `
+                    <div class="flex justify-between">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">Salary:</span>
+                        <span class="text-sm text-gray-900 dark:text-white">$${Number(staff.salary).toLocaleString()}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div class="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <button onclick="window.staffManager.openStaffModal('${staff.id}')" 
+                            class="bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors touch-target">
+                        ✏️ Edit
+                    </button>
+                    <button onclick="window.staffManager.deleteStaff('${staff.id}')" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors touch-target">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
         `;
     }
 

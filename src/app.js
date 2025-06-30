@@ -172,7 +172,29 @@ class App {
             }
         });
 
-        // Auto-sync functionality
+        // Listen for database change events (auto-sync)
+        window.addEventListener('database:dataChanged', (event) => {
+            console.log('🔄 Database data changed, refreshing UI...');
+            this.handleDatabaseDataChanged(event.detail);
+        });
+
+        // Listen for connection status changes
+        window.addEventListener('database:connectionChanged', (event) => {
+            console.log('📡 Database connection status changed:', event.detail.status);
+            this.updateDatabaseStatus();
+            if (event.detail.status === 'connected') {
+                this.showToast('✅ Connected to sync server', 'success');
+                this.refreshCurrentView();
+            }
+        });
+
+        // Listen for force reload events
+        window.addEventListener('database:forceReload', (event) => {
+            console.log('🔄 Database requests force reload...');
+            this.handleForceReload(event.detail);
+        });
+
+        // Check for data updates from other browsers or changes
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 this.checkForDataUpdates();
@@ -196,10 +218,10 @@ class App {
             this.saveState();
         });
 
-        // Periodic sync check (every 5 seconds)
+        // Periodic sync check (every 30 seconds) - reduced since we have auto-sync
         setInterval(() => {
             this.checkForDataUpdates();
-        }, 5000);
+        }, 30000);
 
         // Import/Export functionality
         const exportBtn = document.getElementById('export-data-btn');
@@ -374,13 +396,14 @@ class App {
         try {
             console.log('🔍 loadState: Starting state load...');
             
-            const syncMode = localStorage.getItem('force_sync_mode') === 'true';
-            console.log(`🔍 loadState: syncMode=${syncMode}, database.useLocalStorage=${this.database.useLocalStorage}`);
+            // Check if we're using the API for sync
+            const isUsingAPI = !this.database.useLocalStorage && this.database.isConfigured;
+            console.log(`🔍 loadState: isUsingAPI=${isUsingAPI}, database.useLocalStorage=${this.database.useLocalStorage}`);
             
             let loadedFromDatabase = false;
             
-            // Try to load from database/API if in sync mode
-            if (syncMode && !this.database.useLocalStorage) {
+            // Try to load from database/API if available
+            if (isUsingAPI) {
                 try {
                     console.log('🌐 loadState: Loading from API...');
                     const [staff, logs, settings] = await Promise.all([
@@ -675,31 +698,25 @@ class App {
     updateDatabaseStatus() {
         const statusElement = document.getElementById('database-status');
         if (statusElement) {
-            // Check for forced green indicator
-            const forceGreen = localStorage.getItem('force_green_indicator') === 'true';
-            const forceSyncMode = localStorage.getItem('force_sync_mode') === 'true';
-            
-            if (forceGreen || forceSyncMode) {
-                statusElement.textContent = '🟢 Database';
-                statusElement.title = 'Connected to API sync (forced mode)';
-                return;
-            }
-            
             const status = this.database.getConnectionStatus();
             
             switch (status) {
                 case 'connected':
-                    statusElement.textContent = '🟢 Database';
-                    statusElement.title = 'Connected to API sync';
+                    statusElement.textContent = '🟢 Synced';
+                    statusElement.title = 'Connected to sync server - automatic cross-browser sync active';
+                    break;
+                case 'reconnecting':
+                    statusElement.textContent = '� Reconnecting';
+                    statusElement.title = 'Reconnecting to sync server...';
                     break;
                 case 'error':
                     statusElement.textContent = '🔴 Error';
-                    statusElement.title = 'API sync connection error';
+                    statusElement.title = 'Sync connection error - using local storage';
                     break;
                 case 'local':
                 default:
                     statusElement.textContent = '🟡 Local';
-                    statusElement.title = 'Using local storage';
+                    statusElement.title = 'Using local storage - data not synced across browsers';
                     break;
             }
         }
@@ -1124,6 +1141,60 @@ class App {
         } catch (error) {
             console.error('❌ Failed to refresh from API:', error);
             return false;
+        }
+    }
+
+    // Handle database data changes from auto-sync
+    async handleDatabaseDataChanged(detail) {
+        console.log('🔄 Handling database data change...', detail);
+        
+        // Prevent infinite loops by checking if we're already loading from sync
+        if (this.isLoadingFromSync) {
+            return;
+        }
+        
+        this.isLoadingFromSync = true;
+        
+        try {
+            // Reload data from database
+            await this.loadState();
+            
+            // Refresh the current view
+            this.refreshCurrentView();
+            
+            // Show a subtle notification
+            this.showToast('🔄 Data synchronized from other browser', 'info', 3000);
+            
+        } catch (error) {
+            console.error('Failed to handle database data change:', error);
+        } finally {
+            this.isLoadingFromSync = false;
+        }
+    }
+
+    // Handle force reload request from database
+    async handleForceReload(detail) {
+        console.log('🔄 Handling force reload...', detail);
+        
+        if (this.isLoadingFromSync) {
+            return;
+        }
+        
+        this.isLoadingFromSync = true;
+        
+        try {
+            // Force reload data from database
+            await this.loadState();
+            
+            // Refresh the current view
+            this.refreshCurrentView();
+            
+            console.log('✅ Force reload completed');
+            
+        } catch (error) {
+            console.error('Failed to handle force reload:', error);
+        } finally {
+            this.isLoadingFromSync = false;
         }
     }
 }
