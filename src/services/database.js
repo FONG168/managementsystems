@@ -117,17 +117,25 @@ class DatabaseService {
     }
 
     // Test connection with retry logic
-    async testConnectionWithRetry(maxRetries = 3) {
+    async testConnectionWithRetry(maxRetries = 5) {
+        console.log(`🔄 Testing connection with up to ${maxRetries} retries...`);
+        
         for (let i = 0; i < maxRetries; i++) {
+            console.log(`📡 Attempt ${i + 1}/${maxRetries}...`);
             const result = await this.testConnection();
-            if (result) return true;
+            if (result) {
+                console.log(`✅ Connection successful on attempt ${i + 1}`);
+                return true;
+            }
             
             if (i < maxRetries - 1) {
-                const delay = Math.min(1000 * Math.pow(this.backoffMultiplier, i), 5000);
-                console.log(`🔄 Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
+                const delay = Math.min(1000 * Math.pow(this.backoffMultiplier, i), 8000);
+                console.log(`⏳ Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
                 await this.sleep(delay);
             }
         }
+        
+        console.error(`❌ All ${maxRetries} connection attempts failed`);
         return false;
     }
 
@@ -634,21 +642,31 @@ class DatabaseService {
         };
     }
 
-    // Force a manual sync (useful for troubleshooting)
-    async forceSync() {
-        if (this.useLocalStorage || this.isOffline) {
-            console.warn('⚠️ Cannot force sync - not connected to API');
-            return false;
-        }
-
-        try {
-            console.log('🔄 Forcing manual sync...');
-            await this.performAutoSync();
-            await this.processQueuedSync();
-            console.log('✅ Manual sync completed');
+    // Force reconnection method that can be called manually
+    async forceReconnect() {
+        console.log('🔄 === FORCE RECONNECT INITIATED ===');
+        
+        // Reset connection state
+        this.useLocalStorage = true;
+        this.isConfigured = false;
+        this.isOffline = true;
+        this.consecutiveFailures = 0;
+        
+        // Stop existing sync
+        this.stopAutoSync();
+        
+        // Try to reconnect
+        const success = await this.initialize();
+        
+        if (success) {
+            console.log('✅ Force reconnect successful!');
+            // Trigger UI update
+            if (window.app) {
+                window.app.updateDatabaseStatus();
+            }
             return true;
-        } catch (error) {
-            console.error('❌ Manual sync failed:', error);
+        } else {
+            console.error('❌ Force reconnect failed');
             return false;
         }
     }

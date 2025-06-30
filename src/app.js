@@ -1003,8 +1003,8 @@ class App {
         const status = this.database.getConnectionStatus();
         console.log('📡 Connection Status:', status);
         
-        // Show in UI
-        alert(`Database Status Debug:
+        // Show in UI with options
+        const result = confirm(`Database Status Debug:
         
 • Use Local Storage: ${this.database.useLocalStorage}
 • Is Configured: ${this.database.isConfigured}
@@ -1013,7 +1013,20 @@ class App {
 • Status: ${status.status}
 • Consecutive Failures: ${this.database.consecutiveFailures}
 
-Check browser console for detailed logs.`);
+Click OK to force reconnection, or Cancel to just view status.`);
+        
+        if (result) {
+            console.log('🔄 User requested force reconnection...');
+            this.showToast('🔄 Attempting to reconnect...', 'info');
+            
+            const reconnectSuccess = await this.database.forceReconnect();
+            
+            if (reconnectSuccess) {
+                this.showToast('✅ Successfully connected to database!', 'success');
+            } else {
+                this.showToast('❌ Reconnection failed. Using local storage.', 'error');
+            }
+        }
         
         console.log('🔧 === END DEBUG ===');
     }
