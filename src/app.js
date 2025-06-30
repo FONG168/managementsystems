@@ -538,7 +538,8 @@ class App {
     updateDatabaseStatus() {
         const statusElement = document.getElementById('database-status');
         if (statusElement) {
-            const status = this.database.getConnectionStatus();
+            const statusObj = this.database.getConnectionStatus();
+            const status = statusObj.status || statusObj; // Handle both object and string returns
             
             switch (status) {
                 case 'connected':
