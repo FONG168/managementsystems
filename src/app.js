@@ -135,6 +135,14 @@ class App {
             });
         }
 
+        // Debug connection button
+        const debugButton = document.getElementById('debug-connection');
+        if (debugButton) {
+            debugButton.addEventListener('click', () => {
+                this.debugConnection();
+            });
+        }
+
         // Mobile menu toggle
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         if (mobileMenuButton) {
@@ -966,6 +974,48 @@ class App {
             console.error('❌ Failed to refresh from API:', error);
             return false;
         }
+    }
+
+    // Debug connection method to diagnose sync issues
+    async debugConnection() {
+        console.log('🔧 === DEBUG CONNECTION STATUS ===');
+        
+        // Basic database info
+        console.log('📊 Database Service Info:', {
+            useLocalStorage: this.database.useLocalStorage,
+            isConfigured: this.database.isConfigured,
+            isOffline: this.database.isOffline,
+            apiUrl: this.database.apiUrl,
+            consecutiveFailures: this.database.consecutiveFailures
+        });
+        
+        // Test connection manually
+        console.log('🧪 Testing API connection manually...');
+        try {
+            const response = await fetch(this.database.apiUrl);
+            const data = await response.json();
+            console.log('✅ Manual API test successful:', response.status, data);
+        } catch (error) {
+            console.error('❌ Manual API test failed:', error);
+        }
+        
+        // Get connection status
+        const status = this.database.getConnectionStatus();
+        console.log('📡 Connection Status:', status);
+        
+        // Show in UI
+        alert(`Database Status Debug:
+        
+• Use Local Storage: ${this.database.useLocalStorage}
+• Is Configured: ${this.database.isConfigured}
+• Is Offline: ${this.database.isOffline}
+• API URL: ${this.database.apiUrl}
+• Status: ${status.status}
+• Consecutive Failures: ${this.database.consecutiveFailures}
+
+Check browser console for detailed logs.`);
+        
+        console.log('🔧 === END DEBUG ===');
     }
 
     // Handle database data changes from auto-sync
