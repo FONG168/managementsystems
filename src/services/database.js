@@ -14,6 +14,8 @@ class DatabaseService {
             // Check if sync mode is forced
             const forceSyncMode = localStorage.getItem('force_sync_mode') === 'true';
             
+            console.log(`🔍 Database initialize: forceSyncMode=${forceSyncMode}`);
+            
             if (forceSyncMode) {
                 console.log('🔄 Sync mode enabled - testing API connection...');
                 
@@ -32,6 +34,7 @@ class DatabaseService {
                 }
             } else {
                 console.log('📝 Sync not enabled, using localStorage');
+                this.useLocalStorage = true;
                 return false;
             }
         } catch (error) {
@@ -93,11 +96,16 @@ class DatabaseService {
     }
 
     async loadStaff() {
+        console.log(`🔍 loadStaff: useLocalStorage=${this.useLocalStorage}`);
+        
         if (this.useLocalStorage) {
-            return this._loadFromLocalStorage('staff', []);
+            const localData = this._loadFromLocalStorage('staff', []);
+            console.log(`📱 Loading from localStorage: ${localData.length} staff members`);
+            return localData;
         }
 
         try {
+            console.log('🌐 Loading staff from API...');
             const response = await fetch(`${this.apiUrl}?type=staff`);
             const result = await response.json();
             
@@ -105,11 +113,13 @@ class DatabaseService {
                 throw new Error(result.error || 'Failed to load staff data');
             }
             
-            console.log('✅ Staff data loaded from API');
+            console.log(`✅ Staff data loaded from API: ${result.data?.length || 0} members`);
             return result.data || [];
         } catch (error) {
             console.error('Failed to load staff from API:', error);
-            return this._loadFromLocalStorage('staff', []);
+            const fallbackData = this._loadFromLocalStorage('staff', []);
+            console.log(`📱 Fallback to localStorage: ${fallbackData.length} staff members`);
+            return fallbackData;
         }
     }
 

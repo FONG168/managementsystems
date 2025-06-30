@@ -373,8 +373,61 @@
                     }
                 };
                 
+                // Create test API button
+                const testButton = document.createElement('button');
+                testButton.textContent = '🧪 Test API';
+                testButton.style.cssText = `
+                    position: fixed;
+                    top: 150px;
+                    right: 10px;
+                    z-index: 9999;
+                    background: #7c3aed;
+                    color: white;
+                    border: none;
+                    padding: 6px 10px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 11px;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                `;
+                
+                testButton.onclick = async function() {
+                    console.log('🧪 Testing API connection...');
+                    
+                    try {
+                        const response = await fetch('/api/data');
+                        const data = await response.json();
+                        console.log('🌐 API Response:', data);
+                        
+                        if (data.success) {
+                            console.log(`📊 API Data: ${data.data.staff?.length || 0} staff, ${Object.keys(data.data.logs || {}).length} log months`);
+                            testButton.textContent = '✅ API OK';
+                            testButton.style.background = '#10b981';
+                        } else {
+                            testButton.textContent = '❌ API Error';
+                            testButton.style.background = '#ef4444';
+                        }
+                        
+                        setTimeout(() => {
+                            testButton.textContent = '🧪 Test API';
+                            testButton.style.background = '#7c3aed';
+                        }, 2000);
+                        
+                    } catch (error) {
+                        console.error('❌ API test failed:', error);
+                        testButton.textContent = '❌ Failed';
+                        testButton.style.background = '#ef4444';
+                        
+                        setTimeout(() => {
+                            testButton.textContent = '🧪 Test API';
+                            testButton.style.background = '#7c3aed';
+                        }, 2000);
+                    }
+                };
+                
                 document.body.appendChild(syncButton);
                 document.body.appendChild(refreshButton);
+                document.body.appendChild(testButton);
                 
                 // Auto-remove after 3 minutes
                 setTimeout(() => {
@@ -383,6 +436,9 @@
                     }
                     if (refreshButton.parentNode) {
                         refreshButton.remove();
+                    }
+                    if (testButton.parentNode) {
+                        testButton.remove();
                     }
                 }, 180000);
             }

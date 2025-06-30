@@ -372,62 +372,59 @@ class App {
     // State Management
     async loadState() {
         try {
+            console.log('🔍 loadState: Starting state load...');
+            
+            const syncMode = localStorage.getItem('force_sync_mode') === 'true';
+            console.log(`🔍 loadState: syncMode=${syncMode}, database.useLocalStorage=${this.database.useLocalStorage}`);
+            
             let loadedFromDatabase = false;
             
-            // Try to load from database first
-            if (this.database.isConfigured && !this.database.useLocalStorage) {
+            // Try to load from database/API if in sync mode
+            if (syncMode && !this.database.useLocalStorage) {
                 try {
+                    console.log('🌐 loadState: Loading from API...');
                     const [staff, logs, settings] = await Promise.all([
                         this.database.loadStaff(),
                         this.database.loadLogs(),
                         this.database.loadSettings()
                     ]);
                     
-                    this.state.staff = staff;
-                    this.state.logs = logs;
-                    this.state.settings = settings;
+                    this.state.staff = staff || [];
+                    this.state.logs = logs || {};
+                    this.state.settings = { ...this.state.settings, ...(settings || {}) };
                     loadedFromDatabase = true;
                     
-                    console.log('Data loaded from database');
+                    console.log(`✅ loadState: Data loaded from API - ${this.state.staff.length} staff, ${Object.keys(this.state.logs).length} log months`);
                 } catch (error) {
-                    console.error('Failed to load from database:', error);
+                    console.error('❌ loadState: Failed to load from API:', error);
                 }
+            } else {
+                console.log('📱 loadState: Using localStorage mode');
             }
             
-            // Load from localStorage
-            const stored = localStorage.getItem('employeeManagerState');
-            if (stored) {
-                try {
-                    const parsedState = JSON.parse(stored);
-                    const { _lastModified, _syncId, ...cleanState } = parsedState;
-                    
-                    if (!loadedFromDatabase) {
-                        // Use localStorage data if no database data
+            // Load from localStorage if not using database or as fallback
+            if (!loadedFromDatabase) {
+                const stored = localStorage.getItem('employeeManagerState');
+                if (stored) {
+                    try {
+                        const parsedState = JSON.parse(stored);
+                        const { _lastModified, _syncId, ...cleanState } = parsedState;
+                        
                         this.state = { ...this.state, ...cleanState };
                         this.state._lastModified = _lastModified || Date.now();
-                    } else {
-                        // Compare timestamps if we have both sources
-                        const dbTimestamp = this.state._lastModified || 0;
-                        const localTimestamp = _lastModified || 0;
                         
-                        if (localTimestamp > dbTimestamp) {
-                            this.state = { ...this.state, ...cleanState };
-                            this.state._lastModified = localTimestamp;
-                            this.showToast('Using newer localStorage data', 'info');
-                        }
+                        console.log(`📱 loadState: Data loaded from localStorage - ${this.state.staff?.length || 0} staff`);
+                    } catch (error) {
+                        console.error('Failed to parse stored state:', error);
                     }
-                    
-                    console.log('Data loaded from localStorage');
-                } catch (error) {
-                    console.error('Failed to parse stored state:', error);
                 }
             }
             
-            // Initialize empty data if no data exists (don't load sample data)
+            // Initialize empty data if no data exists
             if (!this.state.staff || this.state.staff.length === 0) {
                 this.state.staff = [];
                 this.state.logs = {};
-                // Don't auto-save empty state
+                console.log('📋 loadState: No data found - starting with empty state');
                 this.showToast('No existing data found - ready for real data entry', 'info');
             }
             
@@ -439,7 +436,6 @@ class App {
             }
         } catch (error) {
             console.error('Failed to load state:', error);
-            // Don't load sample data automatically - start with empty state
             this.state.staff = [];
             this.state.logs = {};
             this.showToast('Starting with empty data - ready for real data entry', 'info');
