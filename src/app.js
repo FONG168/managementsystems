@@ -154,18 +154,24 @@ class App {
             });
         }
 
-        // Navigation links
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const href = link.getAttribute('href');
-                if (href) {
-                    window.location.hash = href;
-                }
-                // Close mobile menu
-                document.getElementById('mobile-menu').classList.add('hidden');
+        // Navigation links - add safety check
+        const navLinks = document.querySelectorAll('.nav-link');
+        if (navLinks && navLinks.length > 0) {
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const href = link.getAttribute('href');
+                    if (href) {
+                        window.location.hash = href;
+                    }
+                    // Close mobile menu safely
+                    const mobileMenu = document.getElementById('mobile-menu');
+                    if (mobileMenu) {
+                        mobileMenu.classList.add('hidden');
+                    }
+                });
             });
-        });
+        }
 
         // Handle browser back/forward
         window.addEventListener('hashchange', () => {

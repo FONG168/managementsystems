@@ -25,7 +25,6 @@ class DatabaseService {
     async initialize() {
         try {
             console.log('🔍 Database initialize: Attempting auto-sync connection...');
-            console.log('🔗 API URL:', this.apiUrl);
             
             // Always try to enable API sync first
             console.log('🔄 Testing API connection for auto-sync...');
@@ -39,7 +38,6 @@ class DatabaseService {
                 this.isOffline = false;
                 this.consecutiveFailures = 0;
                 console.log('✅ API sync mode enabled - automatic multi-browser sync active');
-                console.log('🔧 useLocalStorage set to:', this.useLocalStorage);
                 
                 // Start automatic sync polling
                 this.startAutoSync();
@@ -75,67 +73,48 @@ class DatabaseService {
 
     async testConnection() {
         try {
-            console.log('🧪 Testing API connection to:', this.apiUrl);
+            console.log('🧪 Testing API connection...');
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // Increase timeout to 8 seconds
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
             
             const response = await fetch(this.apiUrl, {
-                method: 'GET',
                 signal: controller.signal,
                 headers: {
-                    'Cache-Control': 'no-cache',
-                    'Accept': 'application/json'
+                    'Cache-Control': 'no-cache'
                 }
             });
             
             clearTimeout(timeoutId);
-            console.log('📡 API Response status:', response.status);
-            
-            if (!response.ok) {
-                console.error('❌ API response not OK:', response.status, response.statusText);
-                this.consecutiveFailures++;
-                return false;
-            }
-            
             const data = await response.json();
-            console.log('📦 API Response data:', data);
             
-            if (data && data.success !== false) {
+            if (response.ok && data.success) {
                 console.log('✅ API connection successful');
                 this.consecutiveFailures = 0;
                 return true;
             } else {
-                console.error('❌ API connection test failed - invalid response:', data);
+                console.error('❌ API connection test failed:', data);
                 this.consecutiveFailures++;
                 return false;
             }
         } catch (error) {
-            console.error('❌ API connection test failed with error:', error.name, error.message);
+            console.error('❌ API connection test failed:', error);
             this.consecutiveFailures++;
             return false;
         }
     }
 
     // Test connection with retry logic
-    async testConnectionWithRetry(maxRetries = 5) {
-        console.log(`🔄 Testing connection with up to ${maxRetries} retries...`);
-        
+    async testConnectionWithRetry(maxRetries = 3) {
         for (let i = 0; i < maxRetries; i++) {
-            console.log(`📡 Attempt ${i + 1}/${maxRetries}...`);
             const result = await this.testConnection();
-            if (result) {
-                console.log(`✅ Connection successful on attempt ${i + 1}`);
-                return true;
-            }
+            if (result) return true;
             
             if (i < maxRetries - 1) {
-                const delay = Math.min(1000 * Math.pow(this.backoffMultiplier, i), 8000);
-                console.log(`⏳ Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
+                const delay = Math.min(1000 * Math.pow(this.backoffMultiplier, i), 5000);
+                console.log(`🔄 Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
                 await this.sleep(delay);
             }
         }
-        
-        console.error(`❌ All ${maxRetries} connection attempts failed`);
         return false;
     }
 
@@ -567,15 +546,7 @@ class DatabaseService {
     }
 
     getConnectionStatus() {
-        console.log('🔍 Connection Status Check:', {
-            useLocalStorage: this.useLocalStorage,
-            isConfigured: this.isConfigured,
-            isOffline: this.isOffline,
-            consecutiveFailures: this.consecutiveFailures
-        });
-        
         if (!this.useLocalStorage && this.isConfigured && !this.isOffline) {
-            console.log('📊 Returning status: connected');
             return {
                 status: 'connected',
                 lastSync: this.lastSyncTime,
@@ -583,7 +554,6 @@ class DatabaseService {
                 consecutiveFailures: this.consecutiveFailures
             };
         } else if (!this.useLocalStorage && this.isOffline) {
-            console.log('📊 Returning status: reconnecting');
             return {
                 status: 'reconnecting',
                 lastSync: this.lastSyncTime,
@@ -591,7 +561,6 @@ class DatabaseService {
                 consecutiveFailures: this.consecutiveFailures
             };
         } else if (!this.useLocalStorage) {
-            console.log('📊 Returning status: error');
             return {
                 status: 'error',
                 lastSync: this.lastSyncTime,
@@ -599,7 +568,6 @@ class DatabaseService {
                 consecutiveFailures: this.consecutiveFailures
             };
         } else {
-            console.log('📊 Returning status: local');
             return {
                 status: 'local',
                 lastSync: null,
@@ -642,31 +610,21 @@ class DatabaseService {
         };
     }
 
-    // Force reconnection method that can be called manually
-    async forceReconnect() {
-        console.log('🔄 === FORCE RECONNECT INITIATED ===');
-        
-        // Reset connection state
-        this.useLocalStorage = true;
-        this.isConfigured = false;
-        this.isOffline = true;
-        this.consecutiveFailures = 0;
-        
-        // Stop existing sync
-        this.stopAutoSync();
-        
-        // Try to reconnect
-        const success = await this.initialize();
-        
-        if (success) {
-            console.log('✅ Force reconnect successful!');
-            // Trigger UI update
-            if (window.app) {
-                window.app.updateDatabaseStatus();
-            }
+    // Force a manual sync (useful for troubleshooting)
+    async forceSync() {
+        if (this.useLocalStorage || this.isOffline) {
+            console.warn('⚠️ Cannot force sync - not connected to API');
+            return false;
+        }
+
+        try {
+            console.log('🔄 Forcing manual sync...');
+            await this.performAutoSync();
+            await this.processQueuedSync();
+            console.log('✅ Manual sync completed');
             return true;
-        } else {
-            console.error('❌ Force reconnect failed');
+        } catch (error) {
+            console.error('❌ Manual sync failed:', error);
             return false;
         }
     }
