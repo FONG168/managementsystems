@@ -54,9 +54,9 @@ class App {
             
             console.log('✅ All dependencies loaded');
             
-            // Initialize components step by step with error handling
+            // Initialize database connection with auto-initialization
             console.log('📡 Initializing database...');
-            await this.database.initialize();
+            await this.initializeDatabase();
             
             console.log('💾 Loading saved state...');
             await this.loadState();
@@ -106,6 +106,27 @@ class App {
         }
     }
     
+    // Initialize database with auto-connection attempt
+    async initializeDatabase() {
+        try {
+            // Try to auto-initialize from stored credentials
+            const autoInitialized = await this.database.autoInitialize();
+            
+            if (autoInitialized) {
+                console.log('✅ Database auto-initialized from stored credentials');
+                return true;
+            } else {
+                console.log('⚠️ No stored credentials found - manual database setup required');
+                this.showToast('Database connection required. Click the database icon to configure.', 'warning');
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Database initialization failed:', error);
+            this.showToast('Database connection failed. Please check your configuration.', 'error');
+            return false;
+        }
+    }
+
     // Helper method to wait for global variables to load
     waitForGlobal(globalName, timeout = 5000) {
         return new Promise((resolve, reject) => {
@@ -415,50 +436,37 @@ class App {
         try {
             console.log('🔍 loadState: Starting state load...');
             
-            // Check if we're using the API for sync
-            const isUsingAPI = !this.database.useLocalStorage && this.database.isConfigured;
-            console.log(`🔍 loadState: isUsingAPI=${isUsingAPI}, database.useLocalStorage=${this.database.useLocalStorage}`);
-            
-            let loadedFromDatabase = false;
-            
-            // Try to load from database/API if available
-            if (isUsingAPI) {
+            // Check if database is configured
+            if (this.database.isConfigured) {
                 try {
-                    console.log('🌐 loadState: Loading from API...');
-                    const [staff, logs, settings] = await Promise.all([
+                    console.log('🌐 loadState: Loading from database...');
+                    const [staff, logs] = await Promise.all([
                         this.database.loadStaff(),
-                        this.database.loadLogs(),
-                        this.database.loadSettings()
+                        this.database.loadLogs()
                     ]);
                     
                     this.state.staff = staff || [];
                     this.state.logs = logs || {};
-                    this.state.settings = { ...this.state.settings, ...(settings || {}) };
-                    loadedFromDatabase = true;
                     
-                    console.log(`✅ loadState: Data loaded from API - ${this.state.staff.length} staff, ${Object.keys(this.state.logs).length} log months`);
+                    console.log(`✅ loadState: Data loaded from database - ${this.state.staff.length} staff, ${Object.keys(this.state.logs).length} log months`);
+                    return;
                 } catch (error) {
-                    console.error('❌ loadState: Failed to load from API:', error);
+                    console.error('❌ loadState: Failed to load from database:', error);
+                    this.showToast('Failed to load data from database', 'error');
                 }
             } else {
-                console.log('📱 loadState: Using localStorage mode');
+                console.log('⚠️ loadState: Database not configured - using empty state');
+                this.state.staff = [];
+                this.state.logs = {};
             }
             
-            // Load from localStorage if not using database or as fallback
-            if (!loadedFromDatabase) {
-                const stored = localStorage.getItem('employeeManagerState');
-                if (stored) {
-                    try {
-                        const parsedState = JSON.parse(stored);
-                        const { _lastModified, _syncId, ...cleanState } = parsedState;
-                        
-                        this.state = { ...this.state, ...cleanState };
-                        this.state._lastModified = _lastModified || Date.now();
-                        
-                        console.log(`📱 loadState: Data loaded from localStorage - ${this.state.staff?.length || 0} staff`);
-                    } catch (error) {
-                        console.error('Failed to parse stored state:', error);
-                    }
+            // Load settings from localStorage (these are always local)
+            const storedSettings = localStorage.getItem('employeeManagerSettings');
+            if (storedSettings) {
+                try {
+                    this.state.settings = { ...this.state.settings, ...JSON.parse(storedSettings) };
+                } catch (error) {
+                    console.error('❌ Failed to parse stored settings:', error);
                 }
             }
             
@@ -466,7 +474,7 @@ class App {
             if (!this.state.staff || this.state.staff.length === 0) {
                 this.state.staff = [];
                 this.state.logs = {};
-                console.log('📋 loadState: No data found - starting with empty state');
+                console.log('📋 loadState: Starting with empty state');
             }
             
             // Apply theme
@@ -484,56 +492,34 @@ class App {
     }
 
     async saveState() {
-        this.showSyncStatus('Saving data...', 'syncing');
-        
         try {
-            // Add timestamp to track when data was last modified
-            const stateWithTimestamp = {
-                ...this.state,
-                _lastModified: Date.now(),
-                _syncId: this.generateSyncId()
-            };
+            console.log('💾 saveState: Starting state save...');
             
-            // Save to database if configured
-            if (this.database.isConfigured && !this.database.useLocalStorage) {
-                await Promise.all([
-                    this.database.saveStaff(this.state.staff),
-                    this.database.saveLogs(this.state.logs),
-                    this.database.saveSettings(this.state.settings)
-                ]);
-                console.log('Data saved to database');
+            // Only save to database if configured
+            if (this.database.isConfigured) {
+                try {
+                    await Promise.all([
+                        this.database.saveStaff(this.state.staff),
+                        this.database.saveLogs(this.state.logs)
+                    ]);
+                    console.log('✅ Data saved to database');
+                    this.showToast('Data saved successfully', 'success');
+                } catch (error) {
+                    console.error('❌ Failed to save to database:', error);
+                    this.showToast('Failed to save data to database', 'error');
+                    throw error;
+                }
+            } else {
+                console.log('⚠️ Database not configured - data not saved');
+                this.showToast('Database not configured. Please connect to database to save data.', 'warning');
             }
             
-            // Always save to localStorage as backup with timestamp
-            localStorage.setItem('employeeManagerState', JSON.stringify(stateWithTimestamp));
-            this.lastSyncTimestamp = Date.now();
-            
-            // Trigger storage event for other tabs
-            this.broadcastStateChange();
-            
-            console.log('Data saved to localStorage with sync info');
-            
-            // Show success briefly
-            this.showSyncStatus('Saved', 'success');
-            setTimeout(() => this.hideSyncStatus(), 1500);
+            // Always save settings to localStorage
+            localStorage.setItem('employeeManagerSettings', JSON.stringify(this.state.settings));
             
         } catch (error) {
             console.error('Failed to save state:', error);
-            this.showSyncStatus('Save failed', 'error');
-            setTimeout(() => this.hideSyncStatus(), 3000);
-            
-            // Ensure localStorage backup works
-            try {
-                const stateWithTimestamp = {
-                    ...this.state,
-                    _lastModified: Date.now(),
-                    _syncId: this.generateSyncId()
-                };
-                localStorage.setItem('employeeManagerState', JSON.stringify(stateWithTimestamp));
-            } catch (localError) {
-                console.error('Failed to save to localStorage:', localError);
-                this.showToast('Failed to save data', 'error');
-            }
+            this.showToast('Failed to save data', 'error');
         }
     }
 

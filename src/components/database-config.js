@@ -76,7 +76,7 @@ export default class DatabaseConfig {
                                 id="supabase-url" 
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
                                 placeholder="https://your-project.supabase.co"
-                                value="${localStorage.getItem('supabase_url') || ''}"
+                                value="${localStorage.getItem('supabase_url') || 'https://kxkshweslyvpgadvbayd.supabase.co'}"
                             >
                         </div>
 
@@ -89,7 +89,7 @@ export default class DatabaseConfig {
                                 rows="3"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
                                 placeholder="your-anon-key"
-                            >${localStorage.getItem('supabase_key') || ''}</textarea>
+                            >${localStorage.getItem('supabase_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4a3Nod2VzbHl2cGdhZHZiYXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMDA5MzksImV4cCI6MjA2Njc3NjkzOX0.qiQxFFfRvuQAOUnXjpBOQEYv_m6NQieY85_f40MsPxs'}</textarea>
                         </div>
 
                         <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
@@ -129,14 +129,7 @@ export default class DatabaseConfig {
                                 onclick="window.databaseConfig.testConnection()"
                                 class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
                             >
-                                🔍 Test
-                            </button>
-                            <button 
-                                type="button" 
-                                onclick="window.databaseConfig.useLocalStorage()"
-                                class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-                            >
-                                💻 Use Local
+                                🔍 Test Connection
                             </button>
                         </div>
                     </form>
@@ -169,7 +162,7 @@ export default class DatabaseConfig {
                 this.app.updateDatabaseStatus();
                 this.hide();
                 // Reload app data from database
-                await this.app.loadStateFromDatabase();
+                await this.app.loadState();
             } else {
                 this.app.showToast('Failed to connect to database', 'error');
             }
@@ -186,50 +179,38 @@ export default class DatabaseConfig {
         if (!url || !key) {
             this.app.showToast('Please enter both URL and API key', 'error');
             return;
-        }                try {
-                    // Test connection without saving
-                    const success = await this.database.initialize(url, key);
-                    
-                    if (success) {
-                        this.app.showToast('Database connection test successful! ✅', 'success');
-                    } else {
-                        this.app.showToast('Database connection test failed ❌', 'error');
-                    }
-                } catch (error) {
-                    console.error('Database test error:', error);
-                    this.app.showToast('Connection test failed: ' + error.message, 'error');
-                }
-    }
-
-    useLocalStorage() {
-        // Clear stored database credentials
-        localStorage.removeItem('supabase_url');
-        localStorage.removeItem('supabase_key');
+        }
         
-        // Reset database to use localStorage
-        this.database.useLocalStorage = true;
-        this.database.isConfigured = false;
-        
-        this.app.showToast('Using local storage mode', 'info');
-        this.app.updateDatabaseStatus();
-        this.hide();
+        try {
+            // Test connection without saving
+            const success = await this.database.initialize(url, key);
+            
+            if (success) {
+                this.app.showToast('Database connection test successful! ✅', 'success');
+            } else {
+                this.app.showToast('Database connection test failed ❌', 'error');
+            }
+        } catch (error) {
+            console.error('Database test error:', error);
+            this.app.showToast('Connection test failed: ' + error.message, 'error');
+        }
     }
 
     getStatusColor() {
-        const status = this.database?.getConnectionStatus() || 'local';
+        const status = this.database?.getConnectionStatus() || 'disconnected';
         switch (status) {
             case 'connected': return 'bg-green-500';
             case 'error': return 'bg-red-500';
-            default: return 'bg-green-500'; // Local storage is working fine
+            default: return 'bg-red-500'; // Not connected
         }
     }
 
     getStatusText() {
-        const status = this.database?.getConnectionStatus() || 'local';
+        const status = this.database?.getConnectionStatus() || 'disconnected';
         switch (status) {
             case 'connected': return 'Connected to Database';
-            case 'error': return 'Database Error (using local storage)';
-            default: return 'Local Storage Ready';
+            case 'error': return 'Database Connection Error';
+            default: return 'Not Connected - Database Required';
         }
     }
 

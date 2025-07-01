@@ -1,754 +1,291 @@
-// Database Service using API for shared storage
-// Simple API-based sync for cross-browser synchronization
+// Database Service using Supabase for persistent storage
+// No local storage fallback - database connection required
+
+import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
 
 class DatabaseService {
     constructor() {
-        this.apiUrl = window.location.origin + '/api/data';
+        this.supabase = null;
         this.isConfigured = false;
-        this.useLocalStorage = true; // Fallback to localStorage when sync is not enabled
-        this.syncInterval = null;
-        this.autoSyncEnabled = true;
-        this.syncIntervalMs = 3000; // Sync every 3 seconds (faster polling for better sync)
-        this.lastDataHash = null;
-        this.isOffline = false;
+        this.connectionStatus = 'disconnected'; // 'connected', 'error', 'disconnected'
         this.lastSyncTime = null;
-        this.syncQueue = []; // Queue for failed sync operations
-        this.isSyncing = false; // Prevent concurrent syncs
-        this.consecutiveFailures = 0;
-        this.maxRetries = 3;
-        this.backoffMultiplier = 1.5;
-        this.connectionCheckInterval = null;
-        this.pendingChanges = new Set(); // Track what needs syncing
     }
 
-    // Initialize database connection
-    async initialize() {
+    // Initialize with Supabase credentials
+    async initialize(supabaseUrl, supabaseKey) {
         try {
-            console.log('🔍 Database initialize: Attempting auto-sync connection...');
+            console.log('🔍 Initializing Supabase connection...');
             
-            // Always try to enable API sync first
-            console.log('🔄 Testing API connection for auto-sync...');
-            
-            // Test API connection with retry logic
-            const connectionTest = await this.testConnectionWithRetry();
-            
-            if (connectionTest) {
-                this.useLocalStorage = false;
-                this.isConfigured = true;
-                this.isOffline = false;
-                this.consecutiveFailures = 0;
-                console.log('✅ API sync mode enabled - automatic multi-browser sync active');
-                
-                // Start automatic sync polling
-                this.startAutoSync();
-                
-                // Start connection monitoring
-                this.startConnectionMonitoring();
-                
-                // Initial sync to get latest data
-                await this.performInitialSync();
-                
-                return true;
-            } else {
-                console.warn('⚠️ API test failed, using localStorage with retry mechanism');
-                this.useLocalStorage = true;
-                this.isOffline = true;
-                
-                // Set up retry mechanism to keep trying to connect
-                this.setupRetryConnection();
-                
-                return false;
-            }
-        } catch (error) {
-            console.error('Database initialization failed:', error);
-            this.useLocalStorage = true;
-            this.isOffline = true;
-            
-            // Set up retry mechanism
-            this.setupRetryConnection();
-            
-            return false;
-        }
-    }
-
-    async testConnection() {
-        try {
-            console.log('🧪 Testing API connection...');
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-            
-            const response = await fetch(this.apiUrl, {
-                signal: controller.signal,
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            clearTimeout(timeoutId);
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                console.log('✅ API connection successful');
-                this.consecutiveFailures = 0;
-                return true;
-            } else {
-                console.error('❌ API connection test failed:', data);
-                this.consecutiveFailures++;
-                return false;
-            }
-        } catch (error) {
-            console.error('❌ API connection test failed:', error);
-            this.consecutiveFailures++;
-            return false;
-        }
-    }
-
-    // Test connection with retry logic
-    async testConnectionWithRetry(maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            const result = await this.testConnection();
-            if (result) return true;
-            
-            if (i < maxRetries - 1) {
-                const delay = Math.min(1000 * Math.pow(this.backoffMultiplier, i), 5000);
-                console.log(`🔄 Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
-                await this.sleep(delay);
-            }
-        }
-        return false;
-    }
-
-    // Start automatic syncing
-    startAutoSync() {
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-        }
-        
-        if (!this.autoSyncEnabled) {
-            console.log('🔄 Auto-sync disabled');
-            return;
-        }
-
-        console.log(`🔄 Starting enhanced auto-sync every ${this.syncIntervalMs/1000} seconds`);
-        
-        this.syncInterval = setInterval(async () => {
-            if (!this.isSyncing) {
-                try {
-                    await this.performAutoSync();
-                } catch (error) {
-                    console.error('Auto-sync error:', error);
-                    this.handleSyncError(error);
-                }
-            }
-        }, this.syncIntervalMs);
-    }
-
-    // Stop automatic syncing
-    stopAutoSync() {
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-            this.syncInterval = null;
-            console.log('🛑 Auto-sync stopped');
-        }
-    }
-
-    // Perform automatic sync check
-    async performAutoSync() {
-        if (this.useLocalStorage || this.isOffline || this.isSyncing) {
-            return;
-        }
-
-        this.isSyncing = true;
-
-        try {
-            // Process any queued sync operations first
-            await this.processQueuedSync();
-            
-            // Check if there are any changes to sync
-            const currentDataHash = await this.getCurrentDataHash();
-            
-            if (currentDataHash && currentDataHash !== this.lastDataHash) {
-                console.log('🔄 Data changes detected from other browsers...');
-                this.lastDataHash = currentDataHash;
-                this.lastSyncTime = Date.now();
-                
-                // Trigger data reload in the app
-                this.notifyDataChange();
+            if (!supabaseUrl || !supabaseKey) {
+                throw new Error('Supabase URL and key are required');
             }
 
-            this.consecutiveFailures = 0;
-        } catch (error) {
-            console.error('Auto-sync check failed:', error);
-            this.handleSyncError(error);
-        } finally {
-            this.isSyncing = false;
-        }
-    }
-
-    // Setup retry connection mechanism
-    setupRetryConnection() {
-        // Don't setup multiple retry timers
-        if (this.retryTimer) {
-            return;
-        }
-
-        console.log('🔄 Setting up enhanced connection retry mechanism...');
-        
-        let retryCount = 0;
-        const maxRetries = 20; // Try for about 20 minutes
-        
-        this.retryTimer = setInterval(async () => {
-            retryCount++;
-            console.log(`🔄 Attempting to reconnect to API... (${retryCount}/${maxRetries})`);
+            // Create Supabase client
+            this.supabase = createClient(supabaseUrl, supabaseKey);
             
-            const connectionTest = await this.testConnection();
+            // Test connection by trying to fetch from a table
+            const { data, error } = await this.supabase
+                .from('staff')
+                .select('count', { count: 'exact', head: true });
             
-            if (connectionTest) {
-                console.log('✅ Reconnected to API! Switching to sync mode...');
-                
-                this.useLocalStorage = false;
-                this.isConfigured = true;
-                this.isOffline = false;
-                this.consecutiveFailures = 0;
-                
-                // Clear retry timer
-                clearInterval(this.retryTimer);
-                this.retryTimer = null;
-                
-                // Start auto-sync
-                this.startAutoSync();
-                
-                // Start connection monitoring
-                this.startConnectionMonitoring();
-                
-                // Perform initial sync and process queue
-                await this.performInitialSync();
-                await this.processQueuedSync();
-                
-                // Also trigger a full data reload for the app
-                this.triggerDataReload();
-                
-                // Notify app about connection restoration
-                this.notifyConnectionChange('connected');
-                
-            } else if (retryCount >= maxRetries) {
-                console.warn('⚠️ Max retry attempts reached, stopping retry mechanism');
-                clearInterval(this.retryTimer);
-                this.retryTimer = null;
-                // Will continue using localStorage
+            if (error) {
+                throw error;
             }
-        }, 60000); // Retry every minute
-    }
 
-    // Notify about data changes
-    notifyDataChange() {
-        if (window.app && typeof window.app.checkForDataUpdates === 'function') {
-            // Use a small delay to prevent rapid fire notifications
-            clearTimeout(this.notifyTimeout);
-            this.notifyTimeout = setTimeout(() => {
-                window.app.checkForDataUpdates();
-            }, 500);
-        }
-    }
-
-    // Get current data hash for change detection
-    async getCurrentDataHash() {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            // Store credentials securely
+            localStorage.setItem('supabase_url', supabaseUrl);
+            localStorage.setItem('supabase_key', supabaseKey);
             
-            const response = await fetch(`${this.apiUrl}/hash`, {
-                signal: controller.signal,
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
+            this.isConfigured = true;
+            this.connectionStatus = 'connected';
+            this.lastSyncTime = new Date().toISOString();
+            console.log('✅ Supabase connection successful');
             
-            clearTimeout(timeoutId);
-            
-            if (response.ok) {
-                const data = await response.json();
-                return data.hash;
-            }
-        } catch (error) {
-            console.error('Failed to get data hash:', error);
-        }
-        return null;
-    }
-
-    // Enhanced immediate sync with change notification
-    async performImmediateSync(type, data) {
-        try {
-            // Send data with change notification
-            const response = await fetch(`${this.apiUrl}/immediate-sync`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: type,
-                    data: data,
-                    timestamp: Date.now(),
-                    sessionId: this.generateSessionId()
-                })
-            });
-            
-            if (response.ok) {
-                console.log(`✅ Immediate sync completed for ${type}`);
-                return true;
-            }
-        } catch (error) {
-            console.error('Immediate sync failed:', error);
-        }
-        return false;
-    }
-
-    // Generate unique session ID
-    generateSessionId() {
-        return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    // Enhanced sync that triggers immediate updates
-    async syncStaffToAPI(staff) {
-        const response = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type: 'staff',
-                data: staff,
-                timestamp: Date.now(),
-                immediate: true  // Flag for immediate sync
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to sync staff data');
-        }
-
-        console.log('✅ Staff data synced to API with immediate flag');
-    }
-
-    // Enhanced sync that triggers immediate updates
-    async syncLogsToAPI(logs) {
-        const response = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type: 'logs',
-                data: logs,
-                timestamp: Date.now(),
-                immediate: true  // Flag for immediate sync
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to sync logs data');
-        }
-
-        console.log('✅ Logs data synced to API with immediate flag');
-    }
-
-    // Staff Management
-    async saveStaff(staff) {
-        console.log('💾 Saving staff data...');
-        
-        if (this.useLocalStorage) {
-            const result = this._saveToLocalStorage('staff', staff);
-            console.log('📱 Staff saved to localStorage');
-            
-            // Queue for sync when connection is restored
-            this.queueSyncOperation('staff', 'save', staff);
-            
-            return result;
-        }
-
-        try {
-            await this.syncStaffToAPI(staff);
-            
-            // Immediate sync successful, trigger hash update
-            await this.performImmediateSync('staff', staff);
-            
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to save staff to API:', error);
-            console.log('📱 Falling back to localStorage...');
-            
-            // Save locally and queue for retry
-            const localResult = this._saveToLocalStorage('staff', staff);
-            this.queueSyncOperation('staff', 'save', staff);
-            
-            return localResult;
-        }
-    }
-
-    async loadStaff() {
-        console.log(`🔍 loadStaff: useLocalStorage=${this.useLocalStorage}`);
-        
-        if (this.useLocalStorage) {
-            const localData = this._loadFromLocalStorage('staff', []);
-            console.log(`📱 Loading from localStorage: ${localData.length} staff members`);
-            return localData;
-        }
-
-        try {
-            console.log('🌐 Loading staff from API...');
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-            
-            const response = await fetch(`${this.apiUrl}?type=staff`, {
-                signal: controller.signal,
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            clearTimeout(timeoutId);
-            const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Failed to load staff data');
-            }
-            
-            console.log(`✅ Staff data loaded from API: ${result.data?.length || 0} members`);
-            
-            // Cache locally for faster access and offline fallback
-            this._saveToLocalStorage('staff', result.data || []);
-            
-            return result.data || [];
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                console.warn('⚠️ Staff load request timed out, using localStorage');
-            } else {
-                console.error('Failed to load staff from API:', error);
-            }
-            
-            const fallbackData = this._loadFromLocalStorage('staff', []);
-            console.log(`📱 Fallback to localStorage: ${fallbackData.length} staff members`);
-            return fallbackData;
-        }
-    }
-
-    // Logs Management
-    async saveLogs(logs) {
-        console.log('💾 Saving logs data...');
-        
-        if (this.useLocalStorage) {
-            const result = this._saveToLocalStorage('logs', logs);
-            console.log('📱 Logs saved to localStorage');
-            
-            // Queue for sync when connection is restored
-            this.queueSyncOperation('logs', 'save', logs);
-            
-            return result;
-        }
-
-        try {
-            await this.syncLogsToAPI(logs);
-            
-            // Immediate sync successful, trigger hash update
-            await this.performImmediateSync('logs', logs);
-            
-            return { success: true };
-        } catch (error) {
-            console.error('Failed to save logs to API:', error);
-            console.log('📱 Falling back to localStorage...');
-            
-            // Save locally and queue for retry
-            const localResult = this._saveToLocalStorage('logs', logs);
-            this.queueSyncOperation('logs', 'save', logs);
-            
-            return localResult;
-        }
-    }
-
-    async loadLogs() {
-        console.log(`🔍 loadLogs: useLocalStorage=${this.useLocalStorage}`);
-        
-        if (this.useLocalStorage) {
-            const localData = this._loadFromLocalStorage('logs', {});
-            console.log('📱 Loading logs from localStorage');
-            return localData;
-        }
-
-        try {
-            console.log('🌐 Loading logs from API...');
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-            
-            const response = await fetch(`${this.apiUrl}?type=logs`, {
-                signal: controller.signal,
-                headers: {
-                    'Cache-Control': 'no-cache'
-                }
-            });
-            
-            clearTimeout(timeoutId);
-            const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Failed to load logs data');
-            }
-            
-            console.log('✅ Logs data loaded from API');
-            
-            // Cache locally for faster access and offline fallback
-            this._saveToLocalStorage('logs', result.data || {});
-            
-            return result.data || {};
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                console.warn('⚠️ Logs load request timed out, using localStorage');
-            } else {
-                console.error('Failed to load logs from API:', error);
-            }
-            
-            const fallbackData = this._loadFromLocalStorage('logs', {});
-            console.log('📱 Fallback to localStorage for logs');
-            return fallbackData;
-        }
-    }
-
-    // Settings Management (simplified for API)
-    async saveSettings(settings) {
-        return this._saveToLocalStorage('settings', settings);
-    }
-
-    async loadSettings() {
-        return this._loadFromLocalStorage('settings', {
-            theme: 'light',
-            dateFormat: 'MM/DD/YYYY',
-            currency: 'USD'
-        });
-    }
-
-    // Database setup (not needed for API)
-    async setupDatabase() {
-        return true; // API handles storage automatically
-    }
-
-    // Helper methods for localStorage fallback
-    _saveToLocalStorage(key, data) {
-        try {
-            localStorage.setItem(`emp_mgr_${key}`, JSON.stringify(data));
             return true;
         } catch (error) {
-            console.error(`Failed to save ${key} to localStorage:`, error);
+            console.error('❌ Supabase connection failed:', error);
+            this.connectionStatus = 'error';
+            this.isConfigured = false;
+            throw error;
+        }
+    }
+
+    // Auto-initialize from stored credentials
+    async autoInitialize() {
+        const url = localStorage.getItem('supabase_url');
+        const key = localStorage.getItem('supabase_key');
+        
+        if (url && key) {
+            try {
+                await this.initialize(url, key);
+                return true;
+            } catch (error) {
+                console.warn('Auto-initialization failed, manual setup required');
+                return false;
+            }
+        }
+        return false;
+    }
+
+    // Test connection
+    async testConnection() {
+        try {
+            if (!this.supabase) {
+                throw new Error('Database not initialized');
+            }
+
+            const { data, error } = await this.supabase
+                .from('staff')
+                .select('count', { count: 'exact', head: true });
+            
+            if (error) {
+                throw error;
+            }
+
+            this.connectionStatus = 'connected';
+            return true;
+        } catch (error) {
+            console.error('Database connection test failed:', error);
+            this.connectionStatus = 'error';
             return false;
         }
     }
 
-    _loadFromLocalStorage(key, defaultValue) {
-        try {
-            const stored = localStorage.getItem(`emp_mgr_${key}`);
-            return stored ? JSON.parse(stored) : defaultValue;
-        } catch (error) {
-            console.error(`Failed to load ${key} from localStorage:`, error);
-            return defaultValue;
-        }
-    }
-
-    isUsingDatabase() {
-        return !this.useLocalStorage;
-    }
-
+    // Get connection status
     getConnectionStatus() {
-        if (!this.useLocalStorage && this.isConfigured && !this.isOffline) {
-            return {
-                status: 'connected',
-                lastSync: this.lastSyncTime,
-                queuedOperations: this.syncQueue.length,
-                consecutiveFailures: this.consecutiveFailures
-            };
-        } else if (!this.useLocalStorage && this.isOffline) {
-            return {
-                status: 'reconnecting',
-                lastSync: this.lastSyncTime,
-                queuedOperations: this.syncQueue.length,
-                consecutiveFailures: this.consecutiveFailures
-            };
-        } else if (!this.useLocalStorage) {
-            return {
-                status: 'error',
-                lastSync: this.lastSyncTime,
-                queuedOperations: this.syncQueue.length,
-                consecutiveFailures: this.consecutiveFailures
-            };
-        } else {
-            return {
-                status: 'local',
-                lastSync: null,
-                queuedOperations: this.syncQueue.length,
-                consecutiveFailures: this.consecutiveFailures
-            };
+        return this.connectionStatus;
+    }
+
+    // Save staff data
+    async saveStaff(staff) {
+        if (!this.isConfigured) {
+            throw new Error('Database not configured. Please connect to database first.');
+        }
+
+        try {
+            // Clear existing staff data
+            await this.supabase.from('staff').delete().neq('id', 0);
+            
+            // Insert new staff data
+            if (staff && staff.length > 0) {
+                const { error } = await this.supabase
+                    .from('staff')
+                    .insert(staff.map(member => ({
+                        staff_id: member.id,
+                        name: member.name,
+                        department: member.department || null,
+                        position: member.position || null,
+                        email: member.email || null,
+                        phone: member.phone || null,
+                        start_date: member.startDate || null,
+                        salary: member.salary || null,
+                        active: member.active !== false
+                    })));
+                
+                if (error) throw error;
+            }
+            
+            this.lastSyncTime = new Date().toISOString();
+            console.log('✅ Staff data saved to database');
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to save staff data:', error);
+            this.connectionStatus = 'error';
+            throw error;
         }
     }
 
-    // Cleanup method to stop intervals when app is closed
-    cleanup() {
-        console.log('🧹 Cleaning up database service...');
-        
-        this.stopAutoSync();
-        
-        if (this.retryTimer) {
-            clearInterval(this.retryTimer);
-            this.retryTimer = null;
+    // Load staff data
+    async loadStaff() {
+        if (!this.isConfigured) {
+            throw new Error('Database not configured. Please connect to database first.');
         }
-        
-        if (this.connectionCheckInterval) {
-            clearInterval(this.connectionCheckInterval);
-            this.connectionCheckInterval = null;
+
+        try {
+            const { data, error } = await this.supabase
+                .from('staff')
+                .select('*')
+                .order('name');
+            
+            if (error) throw error;
+            
+            // Convert to app format
+            const staff = data.map(member => ({
+                id: member.staff_id,
+                name: member.name,
+                department: member.department,
+                position: member.position,
+                email: member.email,
+                phone: member.phone,
+                startDate: member.start_date,
+                salary: member.salary,
+                active: member.active
+            }));
+            
+            console.log(`✅ Loaded ${staff.length} staff members from database`);
+            return staff;
+        } catch (error) {
+            console.error('❌ Failed to load staff data:', error);
+            this.connectionStatus = 'error';
+            throw error;
         }
-        
-        console.log('✅ Database service cleanup completed');
     }
 
-    // Get sync statistics for debugging
-    getSyncStats() {
+    // Save activity logs
+    async saveLogs(logs) {
+        if (!this.isConfigured) {
+            throw new Error('Database not configured. Please connect to database first.');
+        }
+
+        try {
+            // Clear existing logs
+            await this.supabase.from('activity_logs').delete().neq('id', 0);
+            
+            // Convert logs to database format
+            const logEntries = [];
+            for (const [monthKey, monthData] of Object.entries(logs)) {
+                for (const [staffId, staffLogs] of Object.entries(monthData)) {
+                    for (const [day, dayLogs] of Object.entries(staffLogs)) {
+                        for (const [activity, count] of Object.entries(dayLogs)) {
+                            logEntries.push({
+                                month_key: monthKey,
+                                staff_id: staffId,
+                                day: parseInt(day),
+                                activity: activity,
+                                count: count
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Insert new logs
+            if (logEntries.length > 0) {
+                const { error } = await this.supabase
+                    .from('activity_logs')
+                    .insert(logEntries);
+                
+                if (error) throw error;
+            }
+            
+            this.lastSyncTime = new Date().toISOString();
+            console.log(`✅ Saved ${logEntries.length} activity log entries to database`);
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to save activity logs:', error);
+            this.connectionStatus = 'error';
+            throw error;
+        }
+    }
+
+    // Load activity logs
+    async loadLogs() {
+        if (!this.isConfigured) {
+            throw new Error('Database not configured. Please connect to database first.');
+        }
+
+        try {
+            const { data, error } = await this.supabase
+                .from('activity_logs')
+                .select('*');
+            
+            if (error) throw error;
+            
+            // Convert to app format
+            const logs = {};
+            data.forEach(entry => {
+                if (!logs[entry.month_key]) {
+                    logs[entry.month_key] = {};
+                }
+                if (!logs[entry.month_key][entry.staff_id]) {
+                    logs[entry.month_key][entry.staff_id] = {};
+                }
+                if (!logs[entry.month_key][entry.staff_id][entry.day]) {
+                    logs[entry.month_key][entry.staff_id][entry.day] = {};
+                }
+                logs[entry.month_key][entry.staff_id][entry.day][entry.activity] = entry.count;
+            });
+            
+            console.log('✅ Loaded activity logs from database');
+            return logs;
+        } catch (error) {
+            console.error('❌ Failed to load activity logs:', error);
+            this.connectionStatus = 'error';
+            throw error;
+        }
+    }
+
+    // Get sync status
+    getSyncStatus() {
         return {
-            isOnline: !this.isOffline,
-            usingAPI: !this.useLocalStorage,
-            lastSyncTime: this.lastSyncTime,
-            lastDataHash: this.lastDataHash,
-            queueLength: this.syncQueue.length,
-            consecutiveFailures: this.consecutiveFailures,
-            autoSyncEnabled: this.autoSyncEnabled,
-            syncInterval: this.syncIntervalMs
+            enabled: this.isConfigured,
+            connected: this.connectionStatus === 'connected',
+            lastSync: this.lastSyncTime,
+            status: this.connectionStatus
         };
     }
 
-    // Force a manual sync (useful for troubleshooting)
-    async forceSync() {
-        if (this.useLocalStorage || this.isOffline) {
-            console.warn('⚠️ Cannot force sync - not connected to API');
-            return false;
+    // Clear all data (for testing/reset)
+    async clearAllData() {
+        if (!this.isConfigured) {
+            throw new Error('Database not configured');
         }
 
         try {
-            console.log('🔄 Forcing manual sync...');
-            await this.performAutoSync();
-            await this.processQueuedSync();
-            console.log('✅ Manual sync completed');
+            await this.supabase.from('activity_logs').delete().neq('id', 0);
+            await this.supabase.from('staff').delete().neq('id', 0);
+            console.log('✅ All data cleared from database');
             return true;
         } catch (error) {
-            console.error('❌ Manual sync failed:', error);
-            return false;
+            console.error('❌ Failed to clear data:', error);
+            this.connectionStatus = 'error';
+            throw error;
         }
-    }
-
-    // Helper method for delays
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // Handle sync errors with exponential backoff
-    handleSyncError(error) {
-        this.consecutiveFailures++;
-        
-        if (this.consecutiveFailures >= this.maxRetries) {
-            console.warn('⚠️ Multiple sync failures, switching to offline mode temporarily');
-            this.isOffline = true;
-            this.setupRetryConnection();
-        }
-    }
-
-    // Perform initial sync when connection is established
-    async performInitialSync() {
-        try {
-            console.log('🔄 Performing initial sync...');
-            const hash = await this.getCurrentDataHash();
-            this.lastDataHash = hash;
-            this.lastSyncTime = Date.now();
-            console.log('✅ Initial sync completed');
-        } catch (error) {
-            console.error('Initial sync failed:', error);
-        }
-    }
-
-    // Start connection monitoring for better reliability
-    startConnectionMonitoring() {
-        if (this.connectionCheckInterval) {
-            clearInterval(this.connectionCheckInterval);
-        }
-
-        this.connectionCheckInterval = setInterval(async () => {
-            if (!this.isOffline && !this.useLocalStorage) {
-                const isConnected = await this.testConnection();
-                if (!isConnected) {
-                    console.warn('⚠️ Connection lost, switching to offline mode');
-                    this.isOffline = true;
-                    this.setupRetryConnection();
-                }
-            }
-        }, 30000); // Check every 30 seconds
-    }
-
-    // Process queued sync operations
-    async processQueuedSync() {
-        if (this.syncQueue.length === 0) return;
-
-        console.log(`🔄 Processing ${this.syncQueue.length} queued sync operations...`);
-        
-        const queue = [...this.syncQueue];
-        this.syncQueue = [];
-
-        for (const operation of queue) {
-            try {
-                await this.executeQueuedOperation(operation);
-            } catch (error) {
-                console.error('Failed to execute queued operation:', error);
-                // Re-queue if it's a temporary failure
-                if (this.shouldRequeue(error)) {
-                    this.syncQueue.push(operation);
-                }
-            }
-        }
-    }
-
-    // Execute a queued sync operation
-    async executeQueuedOperation(operation) {
-        const { type, action, data } = operation;
-        
-        if (action === 'save') {
-            if (type === 'staff') {
-                await this.syncStaffToAPI(data);
-            } else if (type === 'logs') {
-                await this.syncLogsToAPI(data);
-            }
-        }
-    }
-
-    // Determine if an operation should be re-queued
-    shouldRequeue(error) {
-        // Re-queue for network errors, but not for data validation errors
-        return error.name === 'TypeError' || error.message.includes('fetch');
-    }
-
-    // Queue a sync operation for later
-    queueSyncOperation(type, action, data) {
-        this.syncQueue.push({
-            type,
-            action,
-            data,
-            timestamp: Date.now()
-        });
-        console.log(`📝 Queued ${action} operation for ${type}`);
     }
 }
 
-// Export as singleton instance
-const databaseService = new DatabaseService();
-export default databaseService;
+// Create and export a single instance
+const database = new DatabaseService();
+export default database;
+window.DatabaseService = DatabaseService;
+window.database = database;
