@@ -1279,11 +1279,19 @@ export class LogsManager {
                 state.logs[monthKey].data[staff.id] = {};
             });
             
-            this.app.updateLogs(state.logs);
+            this.app.updateLogsWithSync(state.logs, {
+                action: 'initialize_month',
+                monthKey: monthKey,
+                timestamp: Date.now()
+            });
         } else {
             // Always ensure we have the latest activities
             state.logs[monthKey].activities = [...this.activities];
-            this.app.updateLogs(state.logs);
+            this.app.updateLogsWithSync(state.logs, {
+                action: 'update_activities',
+                monthKey: monthKey,
+                timestamp: Date.now()
+            });
         }
     }
 
@@ -1977,7 +1985,16 @@ export class LogsManager {
         }
         
         state.logs[monthKey].data[staffId][day][activity] = value;
-        this.app.updateLogs(state.logs);
+        
+        // Enhanced sync: Update logs with immediate sync notification
+        this.app.updateLogsWithSync(state.logs, {
+            staffId,
+            day,
+            activity,
+            value,
+            monthKey,
+            timestamp: Date.now()
+        });
 
         // Update cell display
         this.editingCell.textContent = value || '';
@@ -1990,7 +2007,7 @@ export class LogsManager {
         this.renderSummaryStats();
         this.renderTeamReport();
         
-        // Show success message
+        // Show success message with sync status
         this.app.showToast(`Updated ${activity}: ${value} points`, 'success');
     }
 
@@ -2508,7 +2525,12 @@ export class LogsManager {
             });
         }
         
-        this.app.updateLogs(state.logs);
+        this.app.updateLogsWithSync(state.logs, {
+            action: 'clear_month',
+            monthKey: monthKey,
+            staffId: this.selectedStaffId,
+            timestamp: Date.now()
+        });
         this.renderGrid();
         this.renderSummaryStats();
         this.renderTeamReport();

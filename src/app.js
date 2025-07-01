@@ -232,10 +232,15 @@ class App {
             this.saveState();
         });
 
-        // Periodic sync check (every 30 seconds) - reduced since we have auto-sync
+        // Periodic sync check (every 10 seconds for better responsiveness)
         setInterval(() => {
             this.checkForDataUpdates();
-        }, 30000);
+        }, 10000);
+
+        // More frequent check when window gains focus
+        window.addEventListener('focus', () => {
+            setTimeout(() => this.checkForDataUpdates(), 500);
+        });
 
         // Import/Export functionality
         const exportBtn = document.getElementById('export-data-btn');
@@ -545,6 +550,172 @@ class App {
         if (logs) {
             this.state.logs = logs;
             this.saveState(); // Save the updated state
+        }
+    }
+
+    // Update logs in the app state with enhanced sync
+    updateLogsWithSync(logs, changeInfo = null) {
+        if (logs) {
+            this.state.logs = logs;
+            this.state._lastModified = Date.now();
+            
+            // Enhanced sync: Save immediately and notify other browsers
+            this.saveStateWithSync(changeInfo);
+        }
+    }
+
+    // Update staff in the app state with enhanced sync
+    updateStaffWithSync(staff, changeInfo = null) {
+        if (staff) {
+            this.state.staff = staff;
+            this.state._lastModified = Date.now();
+            
+            // Enhanced sync: Save immediately and notify other browsers
+            this.saveStateWithSync(changeInfo);
+        }
+    }
+
+    // Enhanced save state with immediate sync
+    async saveStateWithSync(changeInfo = null) {
+        try {
+            // Show subtle sync indicator
+            this.showSyncStatus('Syncing...', 'syncing');
+            
+            // Add timestamp and change info to track modifications
+            const stateWithTimestamp = {
+                ...this.state,
+                _lastModified: Date.now(),
+                _syncId: this.generateSyncId(),
+                _changeInfo: changeInfo
+            };
+            
+            // Save to database/API first if available
+            if (this.database.isConfigured && !this.database.useLocalStorage) {
+                try {
+                    await Promise.all([
+                        this.database.saveStaff(this.state.staff),
+                        this.database.saveLogs(this.state.logs),
+                        this.database.saveSettings(this.state.settings)
+                    ]);
+                    
+                    // Broadcast change to other browsers
+                    this.broadcastDataChange(changeInfo);
+                    
+                    console.log('✅ Data synced to server and broadcasted');
+                    this.showSyncStatus('Synced', 'success');
+                    
+                } catch (error) {
+                    console.error('Failed to sync to server:', error);
+                    this.showSyncStatus('Sync failed', 'error');
+                }
+            }
+            
+            // Always save to localStorage as backup
+            localStorage.setItem('employeeManagerState', JSON.stringify(stateWithTimestamp));
+            this.lastSyncTimestamp = Date.now();
+            
+            // Trigger storage event for other tabs
+            this.broadcastStateChange();
+            
+            // Hide sync status after short delay
+            setTimeout(() => this.hideSyncStatus(), 1000);
+            
+        } catch (error) {
+            console.error('Failed to save state with sync:', error);
+            this.showSyncStatus('Save failed', 'error');
+            setTimeout(() => this.hideSyncStatus(), 3000);
+        }
+    }
+
+    // Broadcast data changes to other browsers via API
+    async broadcastDataChange(changeInfo) {
+        if (!changeInfo || this.database.useLocalStorage) return;
+        
+        try {
+            // Send a lightweight notification to other browsers
+            const response = await fetch(`${this.database.apiUrl}/notify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: 'data-change',
+                    timestamp: Date.now(),
+                    changeInfo: changeInfo,
+                    sessionId: this.generateSyncId()
+                })
+            });
+            
+            if (response.ok) {
+                console.log('📡 Change notification sent to other browsers');
+            }
+        } catch (error) {
+            console.log('Warning: Could not notify other browsers:', error.message);
+        }
+    }
+
+    // Enhanced data update checker
+    async checkForDataUpdates() {
+        if (this.isLoadingFromSync) return;
+        
+        try {
+            // Check localStorage changes from other tabs
+            const stored = localStorage.getItem('employeeManagerState');
+            if (stored) {
+                const parsedState = JSON.parse(stored);
+                const storedTimestamp = parsedState._lastModified || 0;
+                const currentTimestamp = this.state._lastModified || 0;
+                
+                if (storedTimestamp > currentTimestamp) {
+                    console.log('🔄 Newer data found in localStorage, updating...');
+                    await this.loadState();
+                    this.refreshCurrentView();
+                    this.showToast('📱 Data updated from another tab', 'info', 2000);
+                }
+            }
+            
+            // Check API for updates if in sync mode
+            if (!this.database.useLocalStorage && this.database.isConfigured) {
+                const [freshStaff, freshLogs] = await Promise.all([
+                    this.database.loadStaff(),
+                    this.database.loadLogs()
+                ]);
+                
+                // Check if data has changed
+                const currentStaffHash = this.generateHashFromData(this.state.staff);
+                const currentLogsHash = this.generateHashFromData(this.state.logs);
+                const freshStaffHash = this.generateHashFromData(freshStaff || []);
+                const freshLogsHash = this.generateHashFromData(freshLogs || {});
+                
+                if (currentStaffHash !== freshStaffHash || currentLogsHash !== freshLogsHash) {
+                    console.log('🔄 Newer data found on server, updating...');
+                    this.state.staff = freshStaff || [];
+                    this.state.logs = freshLogs || {};
+                    this.state._lastModified = Date.now();
+                    
+                    this.refreshCurrentView();
+                    this.showToast('🌐 Data synchronized from other browser', 'sync', 3000);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error checking for data updates:', error);
+        }
+    }
+
+    // Generate hash from data for comparison
+    generateHashFromData(data) {
+        try {
+            const jsonString = JSON.stringify(data);
+            let hash = 0;
+            for (let i = 0; i < jsonString.length; i++) {
+                const char = jsonString.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            return hash.toString();
+        } catch (error) {
+            return Date.now().toString();
         }
     }
 

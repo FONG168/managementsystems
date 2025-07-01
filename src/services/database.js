@@ -8,7 +8,7 @@ class DatabaseService {
         this.useLocalStorage = true; // Fallback to localStorage when sync is not enabled
         this.syncInterval = null;
         this.autoSyncEnabled = true;
-        this.syncIntervalMs = 5000; // Sync every 5 seconds (faster polling)
+        this.syncIntervalMs = 3000; // Sync every 3 seconds (faster polling for better sync)
         this.lastDataHash = null;
         this.isOffline = false;
         this.lastSyncTime = null;
@@ -168,11 +168,11 @@ class DatabaseService {
             const currentDataHash = await this.getCurrentDataHash();
             
             if (currentDataHash && currentDataHash !== this.lastDataHash) {
-                console.log('🔄 Data changes detected, performing sync...');
+                console.log('🔄 Data changes detected from other browsers...');
                 this.lastDataHash = currentDataHash;
                 this.lastSyncTime = Date.now();
                 
-                // Trigger any listeners that need to know about data changes
+                // Trigger data reload in the app
                 this.notifyDataChange();
             }
 
@@ -240,13 +240,24 @@ class DatabaseService {
         }, 60000); // Retry every minute
     }
 
-    // Get hash of current data for change detection
+    // Notify about data changes
+    notifyDataChange() {
+        if (window.app && typeof window.app.checkForDataUpdates === 'function') {
+            // Use a small delay to prevent rapid fire notifications
+            clearTimeout(this.notifyTimeout);
+            this.notifyTimeout = setTimeout(() => {
+                window.app.checkForDataUpdates();
+            }, 500);
+        }
+    }
+
+    // Get current data hash for change detection
     async getCurrentDataHash() {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
             
-            const response = await fetch(`${this.apiUrl}?type=hash`, {
+            const response = await fetch(`${this.apiUrl}/hash`, {
                 signal: controller.signal,
                 headers: {
                     'Cache-Control': 'no-cache'
@@ -254,44 +265,101 @@ class DatabaseService {
             });
             
             clearTimeout(timeoutId);
-            const result = await response.json();
             
-            if (response.ok && result.success) {
-                return result.hash || '';
-            } else {
-                console.warn('Failed to get data hash, response not ok:', result);
-                return null;
+            if (response.ok) {
+                const data = await response.json();
+                return data.hash;
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.warn('Data hash request timed out');
-            } else {
-                console.error('Failed to get data hash:', error);
-            }
-            return null;
+            console.error('Failed to get data hash:', error);
         }
+        return null;
     }
 
-    // Notify about data changes
-    notifyDataChange() {
-        // Dispatch custom event that app can listen to
-        window.dispatchEvent(new CustomEvent('database:dataChanged', {
-            detail: { timestamp: Date.now() }
-        }));
+    // Enhanced immediate sync with change notification
+    async performImmediateSync(type, data) {
+        try {
+            // Send data with change notification
+            const response = await fetch(`${this.apiUrl}/immediate-sync`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: type,
+                    data: data,
+                    timestamp: Date.now(),
+                    sessionId: this.generateSessionId()
+                })
+            });
+            
+            if (response.ok) {
+                console.log(`✅ Immediate sync completed for ${type}`);
+                return true;
+            }
+        } catch (error) {
+            console.error('Immediate sync failed:', error);
+        }
+        return false;
     }
 
-    // Notify about connection changes
-    notifyConnectionChange(status) {
-        window.dispatchEvent(new CustomEvent('database:connectionChanged', {
-            detail: { status, timestamp: Date.now() }
-        }));
+    // Generate unique session ID
+    generateSessionId() {
+        return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 
-    // Trigger data reload for the app
-    triggerDataReload() {
-        window.dispatchEvent(new CustomEvent('database:forceReload', {
-            detail: { timestamp: Date.now() }
-        }));
+    // Enhanced sync that triggers immediate updates
+    async syncStaffToAPI(staff) {
+        const response = await fetch(this.apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'staff',
+                data: staff,
+                timestamp: Date.now(),
+                immediate: true  // Flag for immediate sync
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to sync staff data');
+        }
+
+        console.log('✅ Staff data synced to API with immediate flag');
+    }
+
+    // Enhanced sync that triggers immediate updates
+    async syncLogsToAPI(logs) {
+        const response = await fetch(this.apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: 'logs',
+                data: logs,
+                timestamp: Date.now(),
+                immediate: true  // Flag for immediate sync
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to sync logs data');
+        }
+
+        console.log('✅ Logs data synced to API with immediate flag');
     }
 
     // Staff Management
@@ -325,30 +393,6 @@ class DatabaseService {
             
             return localResult;
         }
-    }
-
-    // Separate method for API sync
-    async syncStaffToAPI(staff) {
-        const response = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                type: 'staff',
-                data: staff
-            })
-        });
-
-        const result = await response.json();
-        
-        if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Failed to save staff data');
-        }
-        
-        console.log('✅ Staff data synchronized to API:', result.message);
-        this.lastSyncTime = Date.now();
-        return result;
     }
 
     async loadStaff() {
@@ -429,30 +473,6 @@ class DatabaseService {
             
             return localResult;
         }
-    }
-
-    // Separate method for API sync
-    async syncLogsToAPI(logs) {
-        const response = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                type: 'logs',
-                data: logs
-            })
-        });
-
-        const result = await response.json();
-        
-        if (!response.ok || !result.success) {
-            throw new Error(result.error || 'Failed to save logs data');
-        }
-        
-        console.log('✅ Logs data synchronized to API:', result.message);
-        this.lastSyncTime = Date.now();
-        return result;
     }
 
     async loadLogs() {
@@ -726,31 +746,6 @@ class DatabaseService {
             timestamp: Date.now()
         });
         console.log(`📝 Queued ${action} operation for ${type}`);
-    }
-
-    // Immediate sync for critical changes
-    async performImmediateSync(type, data) {
-        if (this.useLocalStorage || this.isOffline) {
-            this.queueSyncOperation(type, 'save', data);
-            return;
-        }
-
-        try {
-            if (type === 'staff') {
-                await this.syncStaffToAPI(data);
-            } else if (type === 'logs') {
-                await this.syncLogsToAPI(data);
-            }
-            
-            // Update hash after successful sync
-            this.lastDataHash = await this.getCurrentDataHash();
-            this.lastSyncTime = Date.now();
-            
-        } catch (error) {
-            console.error('Immediate sync failed:', error);
-            this.queueSyncOperation(type, 'save', data);
-            this.handleSyncError(error);
-        }
     }
 }
 

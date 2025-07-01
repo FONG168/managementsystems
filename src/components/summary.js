@@ -256,6 +256,8 @@ export class SummaryManager {
         
         // Populate staff filter
         const staffFilter = document.getElementById('staff-filter');
+        if (!staffFilter) return;
+        
         staffFilter.innerHTML = '<option value="">All Staff</option>';
         
         // Sort staff by ID first
@@ -282,27 +284,86 @@ export class SummaryManager {
             staffFilter.appendChild(option);
         });
 
-        // Get all unique activities from logs and initialize selectedActivities
-        const allActivities = new Set();
+        // Initialize activities list - use the same list as logs manager
+        this.selectedActivities = [
+            'Adding Client',
+            "Today's Trust Love",
+            'Total Trust Love',
+            "Today's Hot Chat",
+            'Total Hot Chat',
+            'Test Side Cut',
+            "Today's Side Cut",
+            'New Freetask',
+            'Total Freetask',
+            "Today's Promote Top Up",
+            'Promote Success',
+            'Today New Interesting',
+            'Total Interesting Top Up',
+            "Today's Register",
+            'Total Register Get Reward',
+            'Sending Voice',
+            'Voice Calling',
+            'Video Calling',
+            'First Recharge',
+            'Top Up',
+            'Withdraw'
+        ];
+
+        // Get all unique activities from logs and merge with default list
+        const allActivities = new Set(this.selectedActivities);
         Object.values(state.logs).forEach(monthData => {
             if (monthData.activities) {
                 monthData.activities.forEach(activity => allActivities.add(activity));
             }
         });
 
-        // Initialize all activities as selected (no UI filter needed)
+        // Update selected activities to include all found activities
         this.selectedActivities = Array.from(allActivities);
     }
 
     renderSummary() {
-        const data = this.getFilteredData();
-        this.renderStaffPerformanceTable(data);
+        try {
+            const data = this.getFilteredData();
+            this.renderStaffPerformanceTable(data);
+        } catch (error) {
+            console.error('Error rendering summary:', error);
+            
+            // Show a user-friendly error message
+            const table = document.getElementById('staff-performance-table');
+            const mobileView = document.getElementById('staff-performance-mobile');
+            
+            const errorMessage = `
+                <tr>
+                    <td colspan="24" class="px-6 py-8 text-center">
+                        <div class="text-gray-500 dark:text-gray-400">
+                            <div class="text-4xl mb-2">⚠️</div>
+                            <div class="text-lg font-medium mb-2">Unable to load summary data</div>
+                            <div class="text-sm">Please try refreshing the page or check if there's any data available.</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            
+            if (table) table.innerHTML = errorMessage;
+            
+            const mobileErrorMessage = `
+                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
+                    <div class="text-gray-500 dark:text-gray-400">
+                        <div class="text-4xl mb-2">⚠️</div>
+                        <div class="text-lg font-medium mb-2">Unable to load summary data</div>
+                        <div class="text-sm">Please try refreshing the page or check if there's any data available.</div>
+                    </div>
+                </div>
+            `;
+            
+            if (mobileView) mobileView.innerHTML = mobileErrorMessage;
+        }
     }
 
     getFilteredData() {
         const state = this.app.getState();
-        const selectedStaffId = document.getElementById('staff-filter').value;
-        const dateRange = document.getElementById('date-range').value;
+        const selectedStaffId = document.getElementById('staff-filter')?.value;
+        const dateRange = document.getElementById('date-range')?.value || 'current';
 
         // Get relevant log entries based on period and date range
         const relevantLogs = this.getRelevantLogs(dateRange);
@@ -319,6 +380,33 @@ export class SummaryManager {
             staffPerformance: {},
             totalStaff: staffToAnalyze.length
         };
+
+        // Ensure selectedActivities is initialized
+        if (!this.selectedActivities || this.selectedActivities.length === 0) {
+            this.selectedActivities = [
+                'Adding Client',
+                "Today's Trust Love",
+                'Total Trust Love',
+                "Today's Hot Chat",
+                'Total Hot Chat',
+                'Test Side Cut',
+                "Today's Side Cut",
+                'New Freetask',
+                'Total Freetask',
+                "Today's Promote Top Up",
+                'Promote Success',
+                'Today New Interesting',
+                'Total Interesting Top Up',
+                "Today's Register",
+                'Total Register Get Reward',
+                'Sending Voice',
+                'Voice Calling',
+                'Video Calling',
+                'First Recharge',
+                'Top Up',
+                'Withdraw'
+            ];
+        }
 
         // Initialize activity totals
         this.selectedActivities.forEach(activity => {
@@ -344,21 +432,23 @@ export class SummaryManager {
             // Sum activities from relevant logs
             relevantLogs.forEach(logKey => {
                 const logData = state.logs[logKey];
-                if (logData && logData.data[staff.id]) {
+                if (logData && logData.data && logData.data[staff.id]) {
                     Object.entries(logData.data[staff.id]).forEach(([day, activities]) => {
-                        this.selectedActivities.forEach(activity => {
-                            const count = activities[activity] || 0;
-                            aggregatedData.activityTotals[activity] += count;
-                            aggregatedData.staffPerformance[staff.id].activityBreakdown[activity] += count;
-                            aggregatedData.staffPerformance[staff.id].totalActivities += count;
-                            aggregatedData.totalActivities += count;
+                        if (activities && typeof activities === 'object') {
+                            this.selectedActivities.forEach(activity => {
+                                const count = activities[activity] || 0;
+                                aggregatedData.activityTotals[activity] += count;
+                                aggregatedData.staffPerformance[staff.id].activityBreakdown[activity] += count;
+                                aggregatedData.staffPerformance[staff.id].totalActivities += count;
+                                aggregatedData.totalActivities += count;
 
-                            // Track top activity for this staff member
-                            if (count > aggregatedData.staffPerformance[staff.id].topActivityCount) {
-                                aggregatedData.staffPerformance[staff.id].topActivity = activity;
-                                aggregatedData.staffPerformance[staff.id].topActivityCount = aggregatedData.staffPerformance[staff.id].activityBreakdown[activity];
-                            }
-                        });
+                                // Track top activity for this staff member
+                                if (aggregatedData.staffPerformance[staff.id].activityBreakdown[activity] > aggregatedData.staffPerformance[staff.id].topActivityCount) {
+                                    aggregatedData.staffPerformance[staff.id].topActivity = activity;
+                                    aggregatedData.staffPerformance[staff.id].topActivityCount = aggregatedData.staffPerformance[staff.id].activityBreakdown[activity];
+                                }
+                            });
+                        }
                     });
                 }
             });
@@ -369,8 +459,11 @@ export class SummaryManager {
 
     getRelevantLogs(dateRange) {
         const state = this.app.getState();
-        const currentDate = new Date();
-        const logKeys = Object.keys(state.logs);
+        const logKeys = Object.keys(state.logs || {});
+        
+        if (logKeys.length === 0) {
+            return [];
+        }
         
         // For simplicity, we'll work with monthly logs
         // In a real app, you'd want more sophisticated date filtering
@@ -457,30 +550,33 @@ export class SummaryManager {
     renderStaffPerformanceTable(data) {
         const table = document.getElementById('staff-performance-table');
         const mobileView = document.getElementById('staff-performance-mobile');
-        const { staffToShow, activities, allActivities } = data;
+        
+        if (!table || !mobileView) {
+            console.error('Table elements not found');
+            return;
+        }
 
-        // Calculate totals for each activity
-        const activityTotals = {};
-        allActivities.forEach(activity => {
-            activityTotals[activity] = 0;
-        });
+        const state = this.app.getState();
+        const selectedStaffId = document.getElementById('staff-filter')?.value;
+        
+        // Get staff to show
+        const staffToShow = selectedStaffId 
+            ? state.staff.filter(s => s.id === selectedStaffId)
+            : state.staff;
 
+        // Get activities to show
+        const activities = this.selectedActivities || [];
+        
         let grandTotal = 0;
 
-        // Calculate staff data for current period
-        const monthData = this.getRelevantLogs(this.getDateRange());
-        
-        // Generate table rows and mobile cards
+        // Generate table rows
         const tableRows = staffToShow.map(staff => {
-            const staffData = monthData.data[staff.id] || {};
-            let periodTotal = 0;
+            const staffPerformance = data.staffPerformance[staff.id] || {};
+            const periodTotal = staffPerformance.totalActivities || 0;
+            grandTotal += periodTotal;
 
             const activityCells = activities.map(activity => {
-                const total = this.calculateStaffActivityTotal(staffData, activity);
-                activityTotals[activity] += total;
-                periodTotal += total;
-                grandTotal += total;
-
+                const total = staffPerformance.activityBreakdown?.[activity] || 0;
                 return `
                     <td class="px-2 py-3 whitespace-nowrap text-center text-sm text-gray-900 dark:text-gray-100">
                         ${Utils.formatNumber(total)}
@@ -509,16 +605,14 @@ export class SummaryManager {
 
         // Generate mobile cards
         const mobileCards = staffToShow.map(staff => {
-            const staffData = monthData.data[staff.id] || {};
-            let periodTotal = 0;
+            const staffPerformance = data.staffPerformance[staff.id] || {};
+            const staffPeriodTotal = staffPerformance.totalActivities || 0;
             
             // Calculate top activities
             const staffActivities = activities.map(activity => ({
                 name: activity,
-                value: this.calculateStaffActivityTotal(staffData, activity)
+                value: staffPerformance.activityBreakdown?.[activity] || 0
             })).filter(a => a.value > 0).sort((a, b) => b.value - a.value);
-
-            staffActivities.forEach(a => periodTotal += a.value);
 
             return `
                 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 shadow-sm">
@@ -528,7 +622,7 @@ export class SummaryManager {
                             <p class="text-sm text-gray-500 dark:text-gray-400">ID: ${staff.id}</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-lg font-bold text-gray-900 dark:text-white">${Utils.formatNumber(periodTotal)}</div>
+                            <div class="text-lg font-bold text-gray-900 dark:text-white">${Utils.formatNumber(staffPeriodTotal)}</div>
                             <div class="text-xs text-gray-500 dark:text-gray-400">Total Points</div>
                         </div>
                     </div>
@@ -567,7 +661,7 @@ export class SummaryManager {
 
         // Add totals row to desktop table
         const totalActivityCells = activities.map(activity => {
-            const total = activityTotals[activity];
+            const total = data.activityTotals[activity] || 0;
             return `
                 <td class="px-2 py-3 whitespace-nowrap text-center text-sm font-bold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700">
                     ${Utils.formatNumber(total)}
@@ -588,17 +682,30 @@ export class SummaryManager {
         `;
     }
 
-    calculateStaffActivityTotal(staffData, activity) {
-        // Calculate total for an activity based on current period
-        let total = 0;
-        
-        // This is a simplified version - you may need to adjust based on the period logic
-        Object.keys(staffData).forEach(day => {
-            if (staffData[day] && staffData[day][activity]) {
-                total += staffData[day][activity];
+    showStaffDetails(staffId) {
+        // Check if we have a logs manager available (for the modal)
+        if (window.logsManager && typeof window.logsManager.showStaffDetails === 'function') {
+            window.logsManager.showStaffDetails(staffId);
+        } else {
+            // Simple fallback - show toast with staff info
+            const state = this.app.getState();
+            const staff = state.staff.find(s => s.id === staffId);
+            if (staff) {
+                this.app.showToast(`Staff Details: ${staff.name} (ID: ${staff.id})`, 'info');
             }
-        });
-        
-        return total;
+        }
+    }
+
+    closeStaffModal() {
+        // Check if we have a logs manager available (for the modal)
+        if (window.logsManager && typeof window.logsManager.closeStaffModal === 'function') {
+            window.logsManager.closeStaffModal();
+        } else {
+            // Try to close modal directly if it exists
+            const modal = document.getElementById('staff-details-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
     }
 }

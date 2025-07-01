@@ -101,7 +101,7 @@ async function handleGet(req, res) {
 // Handle POST requests - save/sync data
 async function handlePost(req, res) {
     try {
-        const { type, data } = req.body;
+        const { type, data, immediate, timestamp, sessionId } = req.body;
         
         if (!type || data === undefined) {
             return res.status(400).json({ 
@@ -109,6 +109,10 @@ async function handlePost(req, res) {
                 error: 'Missing type or data in request body' 
             });
         }
+        
+        // Handle immediate sync flag for real-time updates
+        const isImmediateSync = immediate === true;
+        const updateTimestamp = new Date().toISOString();
         
         if (type === 'staff') {
             if (!Array.isArray(data)) {
@@ -119,12 +123,16 @@ async function handlePost(req, res) {
             }
             
             sharedData.staff = data;
-            sharedData.lastUpdated = new Date().toISOString();
+            sharedData.lastUpdated = updateTimestamp;
+            
+            console.log(`📝 Staff data updated (${data.length} records)${isImmediateSync ? ' [IMMEDIATE SYNC]' : ''}`);
+            
             res.status(200).json({ 
                 success: true,
                 message: 'Staff data synchronized successfully',
                 count: data.length,
-                lastUpdated: sharedData.lastUpdated
+                lastUpdated: sharedData.lastUpdated,
+                immediate: isImmediateSync
             });
         } else if (type === 'logs') {
             if (typeof data !== 'object' || data === null) {
@@ -135,17 +143,30 @@ async function handlePost(req, res) {
             }
             
             sharedData.logs = data;
-            sharedData.lastUpdated = new Date().toISOString();
+            sharedData.lastUpdated = updateTimestamp;
+            
+            console.log(`📊 Logs data updated (${Object.keys(data).length} months)${isImmediateSync ? ' [IMMEDIATE SYNC]' : ''}`);
+            
             res.status(200).json({ 
                 success: true,
                 message: 'Logs data synchronized successfully',
                 logCount: Object.keys(data).length,
-                lastUpdated: sharedData.lastUpdated
+                lastUpdated: sharedData.lastUpdated,
+                immediate: isImmediateSync
+            });
+        } else if (type === 'notify') {
+            // Handle change notifications (lightweight ping to other browsers)
+            console.log(`🔔 Change notification received from session ${sessionId}`);
+            
+            res.status(200).json({ 
+                success: true,
+                message: 'Notification received',
+                timestamp: updateTimestamp
             });
         } else {
             res.status(400).json({ 
                 success: false,
-                error: `Invalid data type: ${type}. Supported types: staff, logs` 
+                error: `Invalid data type: ${type}. Supported types: staff, logs, notify` 
             });
         }
     } catch (error) {
