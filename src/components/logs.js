@@ -1963,52 +1963,66 @@ export class LogsManager {
         }
     }
 
-    saveDataFromModal() {
+    async saveDataFromModal() {
         if (!this.editingCell) return;
 
-        const input = document.getElementById('data-entry-value');
-        const value = parseInt(input.value) || 0;
-        
-        // Update data
-        const staffId = this.editingCell.dataset.staffId;
-        const day = this.editingCell.dataset.day;
-        const activity = this.editingCell.dataset.activity;
-        
-        const state = this.app.getState();
-        const monthKey = `${this.currentYear}-${String(this.currentMonth + 1).padStart(2, '0')}`;
-        
-        if (!state.logs[monthKey].data[staffId]) {
-            state.logs[monthKey].data[staffId] = {};
-        }
-        if (!state.logs[monthKey].data[staffId][day]) {
-            state.logs[monthKey].data[staffId][day] = {};
-        }
-        
-        state.logs[monthKey].data[staffId][day][activity] = value;
-        
-        // Enhanced sync: Update logs with immediate sync notification
-        this.app.updateLogsWithSync(state.logs, {
-            staffId,
-            day,
-            activity,
-            value,
-            monthKey,
-            timestamp: Date.now()
-        });
+        try {
+            const input = document.getElementById('data-entry-value');
+            const value = parseInt(input.value) || 0;
+            
+            // Update data
+            const staffId = this.editingCell.dataset.staffId;
+            const day = this.editingCell.dataset.day;
+            const activity = this.editingCell.dataset.activity;
+            
+            console.log(`💾 Saving activity data: ${activity} = ${value} for staff ${staffId} on day ${day}`);
+            
+            const state = this.app.getState();
+            const monthKey = `${this.currentYear}-${String(this.currentMonth + 1).padStart(2, '0')}`;
+            
+            if (!state.logs[monthKey]) {
+                state.logs[monthKey] = { data: {} };
+            }
+            if (!state.logs[monthKey].data[staffId]) {
+                state.logs[monthKey].data[staffId] = {};
+            }
+            if (!state.logs[monthKey].data[staffId][day]) {
+                state.logs[monthKey].data[staffId][day] = {};
+            }
+            
+            state.logs[monthKey].data[staffId][day][activity] = value;
+            
+            // Enhanced sync: Update logs with immediate sync notification
+            console.log('🔄 Triggering database sync...');
+            await this.app.updateLogsWithSync(state.logs, {
+                staffId,
+                day,
+                activity,
+                value,
+                monthKey,
+                timestamp: Date.now()
+            });
 
-        // Update cell display
-        this.editingCell.textContent = value || '';
-        
-        // Close modal
-        this.closeDataModal();
+            console.log('✅ Activity data saved and synced');
 
-        // Re-render to update totals
-        this.renderGrid();
-        this.renderSummaryStats();
-        this.renderTeamReport();
-        
-        // Show success message with sync status
-        this.app.showToast(`Updated ${activity}: ${value} points`, 'success');
+            // Update cell display
+            this.editingCell.textContent = value || '';
+            
+            // Close modal
+            this.closeDataModal();
+
+            // Re-render to update totals
+            this.renderGrid();
+            this.renderSummaryStats();
+            this.renderTeamReport();
+            
+            // Show success message with sync status
+            this.app.showToast(`Updated ${activity}: ${value} points`, 'success');
+            
+        } catch (error) {
+            console.error('❌ Failed to save activity data:', error);
+            this.app.showToast('Failed to save activity data', 'error');
+        }
     }
 
     setTeamReportPeriod(period) {

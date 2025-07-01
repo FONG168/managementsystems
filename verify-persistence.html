@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Persistence Verification</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        button { margin: 5px; padding: 12px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; }
+        .btn-success:hover { background: #218838; }
+        .output { margin-top: 10px; padding: 15px; background: #f8f9fa; border-radius: 5px; white-space: pre-wrap; font-family: 'Courier New', monospace; max-height: 400px; overflow-y: auto; font-size: 12px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; border: 1px solid #dee2e6; }
+        .stat-number { font-size: 2em; font-weight: bold; color: #007bff; }
+        .stat-label { color: #6c757d; margin-top: 5px; }
+        input[type="text"] { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Employee Management System - Data Persistence Verification</h1>
+        <p>This tool helps verify that your Supabase database is properly storing and retrieving data from the Employee Management System.</p>
+        
+        <div class="section info">
+            <h3>📋 How to Use This Tool</h3>
+            <ol>
+                <li>First, test the database connection using your Supabase credentials</li>
+                <li>View current data in the database to see what's already stored</li>
+                <li>Go to the main app and add/edit some staff members or activity logs</li>
+                <li>Come back here and refresh the data to verify changes were saved</li>
+                <li>If data is not persisting, check the console logs and error messages</li>
+            </ol>
+        </div>
+
+        <!-- Connection Section -->
+        <div class="section">
+            <h3>🔗 Database Connection</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label>Supabase URL:</label>
+                    <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
+                </div>
+                <div>
+                    <label>Supabase Anon Key:</label>
+                    <input type="text" id="supabaseKey" placeholder="your-anon-key">
+                </div>
+            </div>
+            <button onclick="loadCredentials()">Load Stored Credentials</button>
+            <button onclick="testConnection()" class="btn-success">🔍 Test Connection</button>
+            <div id="connectionOutput" class="output"></div>
+        </div>
+
+        <!-- Current Data Stats -->
+        <div class="section">
+            <h3>📊 Current Database Contents</h3>
+            <button onclick="refreshStats()" class="btn-success">🔄 Refresh Data</button>
+            <button onclick="viewDetailedData()">📋 View Detailed Data</button>
+            
+            <div class="stats" id="statsContainer">
+                <div class="stat-card">
+                    <div class="stat-number" id="staffCount">-</div>
+                    <div class="stat-label">Staff Members</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="logEntries">-</div>
+                    <div class="stat-label">Activity Log Entries</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="lastUpdate">-</div>
+                    <div class="stat-label">Last Updated</div>
+                </div>
+            </div>
+            
+            <div id="dataOutput" class="output"></div>
+        </div>
+
+        <!-- Test Operations -->
+        <div class="section">
+            <h3>🧪 Test Operations</h3>
+            <button onclick="addTestData()" class="btn-success">➕ Add Test Data</button>
+            <button onclick="simulateAppSave()">💾 Simulate App Save</button>
+            <button onclick="clearTestData()" class="btn-danger">🗑️ Clear Test Data</button>
+            <div id="testOutput" class="output"></div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="section">
+            <h3>🔗 Quick Links</h3>
+            <a href="https://managementsystems-3fe4jjdc5-jannelee168-8976s-projects.vercel.app" target="_blank" style="margin-right: 15px;">
+                <button>🚀 Open Main App</button>
+            </a>
+            <a href="https://supabase.com/dashboard" target="_blank" style="margin-right: 15px;">
+                <button>🗄️ Supabase Dashboard</button>
+            </a>
+            <button onclick="openConsole()">🛠️ Open Browser Console</button>
+        </div>
+    </div>
+
+    <script>
+        let supabase = null;
+        const TEST_PREFIX = 'VERIFY_TEST_';
+
+        function log(elementId, message, type = 'info') {
+            const output = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : '📋';
+            output.innerHTML += `${icon} [${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function clearOutput(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        function loadCredentials() {
+            const url = localStorage.getItem('supabase_url') || 'https://kxkshweslyvpgadvbayd.supabase.co';
+            const key = localStorage.getItem('supabase_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4a3Nod2VzbHl2cGdhZHZiYXlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyMDA5MzksImV4cCI6MjA2Njc3NjkzOX0.qiQxFFfRvuQAOUnXjpBOQEYv_m6NQieY85_f40MsPxs';
+            
+            document.getElementById('supabaseUrl').value = url;
+            document.getElementById('supabaseKey').value = key;
+            
+            if (url && key) {
+                log('connectionOutput', 'Loaded stored credentials', 'success');
+            } else {
+                log('connectionOutput', 'No stored credentials found', 'error');
+            }
+        }
+
+        async function testConnection() {
+            clearOutput('connectionOutput');
+            
+            const url = document.getElementById('supabaseUrl').value;
+            const key = document.getElementById('supabaseKey').value;
+            
+            if (!url || !key) {
+                log('connectionOutput', 'Please enter both URL and key', 'error');
+                return;
+            }
+
+            try {
+                log('connectionOutput', 'Creating Supabase client...');
+                supabase = window.supabase.createClient(url, key);
+                
+                log('connectionOutput', 'Testing connection...');
+                const { data, error, count } = await supabase
+                    .from('staff')
+                    .select('*', { count: 'exact' });
+                
+                if (error) throw error;
+                
+                log('connectionOutput', `Connection successful! Database contains ${count} staff records`, 'success');
+                
+                // Also test logs table
+                const { count: logCount, error: logError } = await supabase
+                    .from('activity_logs')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (logError) throw logError;
+                
+                log('connectionOutput', `Activity logs table contains ${logCount} entries`, 'success');
+                log('connectionOutput', 'Database is ready for data operations!', 'success');
+                
+                // Auto-refresh stats
+                refreshStats();
+                
+            } catch (error) {
+                log('connectionOutput', `Connection failed: ${error.message}`, 'error');
+                if (error.details) {
+                    log('connectionOutput', `Details: ${error.details}`, 'error');
+                }
+            }
+        }
+
+        async function refreshStats() {
+            if (!supabase) {
+                log('dataOutput', 'Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                clearOutput('dataOutput');
+                log('dataOutput', 'Fetching current database statistics...');
+                
+                // Get staff count
+                const { count: staffCount, error: staffError } = await supabase
+                    .from('staff')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (staffError) throw staffError;
+                
+                // Get logs count
+                const { count: logCount, error: logError } = await supabase
+                    .from('activity_logs')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (logError) throw logError;
+                
+                // Get latest update time (approximate)
+                const { data: recentStaff, error: recentError } = await supabase
+                    .from('staff')
+                    .select('created_at, updated_at')
+                    .order('updated_at', { ascending: false })
+                    .limit(1);
+                
+                let lastUpdate = 'Unknown';
+                if (!recentError && recentStaff && recentStaff.length > 0) {
+                    const updateTime = new Date(recentStaff[0].updated_at || recentStaff[0].created_at);
+                    lastUpdate = updateTime.toLocaleString();
+                }
+                
+                // Update display
+                document.getElementById('staffCount').textContent = staffCount || 0;
+                document.getElementById('logEntries').textContent = logCount || 0;
+                document.getElementById('lastUpdate').textContent = lastUpdate;
+                
+                log('dataOutput', `Statistics updated: ${staffCount} staff, ${logCount} log entries`, 'success');
+                
+            } catch (error) {
+                log('dataOutput', `Failed to refresh stats: ${error.message}`, 'error');
+            }
+        }
+
+        async function viewDetailedData() {
+            if (!supabase) {
+                log('dataOutput', 'Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                clearOutput('dataOutput');
+                log('dataOutput', 'Fetching detailed data...');
+                
+                // Get all staff
+                const { data: staff, error: staffError } = await supabase
+                    .from('staff')
+                    .select('*')
+                    .order('name');
+                
+                if (staffError) throw staffError;
+                
+                log('dataOutput', `\n=== STAFF MEMBERS (${staff.length}) ===`);
+                if (staff.length === 0) {
+                    log('dataOutput', 'No staff members found');
+                } else {
+                    staff.forEach((member, index) => {
+                        log('dataOutput', `${index + 1}. ${member.name} (ID: ${member.staff_id})`);
+                        log('dataOutput', `   Dept: ${member.department || 'N/A'}, Position: ${member.position || 'N/A'}`);
+                        log('dataOutput', `   Email: ${member.email || 'N/A'}, Active: ${member.active ? 'Yes' : 'No'}`);
+                    });
+                }
+                
+                // Get recent activity logs
+                const { data: logs, error: logError } = await supabase
+                    .from('activity_logs')
+                    .select('*')
+                    .order('month_key', { ascending: false })
+                    .limit(10);
+                
+                if (logError) throw logError;
+                
+                log('dataOutput', `\n=== RECENT ACTIVITY LOGS (showing ${logs.length} of total) ===`);
+                if (logs.length === 0) {
+                    log('dataOutput', 'No activity logs found');
+                } else {
+                    logs.forEach((log_entry, index) => {
+                        log('dataOutput', `${index + 1}. ${log_entry.month_key} - ${log_entry.staff_id} - Day ${log_entry.day}`);
+                        log('dataOutput', `   Activity: ${log_entry.activity} (Count: ${log_entry.count})`);
+                    });
+                }
+                
+            } catch (error) {
+                log('dataOutput', `Failed to fetch detailed data: ${error.message}`, 'error');
+            }
+        }
+
+        async function addTestData() {
+            if (!supabase) {
+                log('testOutput', 'Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                clearOutput('testOutput');
+                log('testOutput', 'Adding test data...');
+                
+                const testStaff = {
+                    staff_id: TEST_PREFIX + Date.now(),
+                    name: 'Test Employee ' + Date.now(),
+                    department: 'Testing',
+                    position: 'QA Tester',
+                    email: 'test@example.com',
+                    phone: '123-456-7890',
+                    start_date: new Date().toISOString().split('T')[0],
+                    salary: 50000,
+                    active: true
+                };
+
+                const { data, error } = await supabase
+                    .from('staff')
+                    .insert([testStaff])
+                    .select();
+                
+                if (error) throw error;
+                
+                log('testOutput', `Test staff added: ${data[0].name} (${data[0].staff_id})`, 'success');
+                
+                // Add test activity log
+                const testLog = {
+                    month_key: '2024-01',
+                    staff_id: testStaff.staff_id,
+                    day: 15,
+                    activity: 'testing',
+                    count: 8
+                };
+
+                const { data: logData, error: logError } = await supabase
+                    .from('activity_logs')
+                    .insert([testLog])
+                    .select();
+                
+                if (logError) throw logError;
+                
+                log('testOutput', `Test activity log added for ${logData[0].staff_id}`, 'success');
+                
+                // Refresh stats
+                refreshStats();
+                
+            } catch (error) {
+                log('testOutput', `Failed to add test data: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulateAppSave() {
+            if (!supabase) {
+                log('testOutput', 'Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                clearOutput('testOutput');
+                log('testOutput', 'Simulating how the main app saves data...');
+                
+                // This simulates the exact same process as the main app
+                const mockAppData = [
+                    {
+                        id: 'APP_SIM_' + Date.now(),
+                        name: 'App Simulation Test',
+                        department: 'IT',
+                        position: 'Developer',
+                        email: 'appsim@test.com',
+                        phone: '999-888-7777',
+                        startDate: '2024-01-01',
+                        salary: 60000,
+                        active: true
+                    }
+                ];
+
+                // Convert to database format (same as the app does)
+                const staffRecords = mockAppData.map(member => ({
+                    staff_id: member.id,
+                    name: member.name,
+                    department: member.department || null,
+                    position: member.position || null,
+                    email: member.email || null,
+                    phone: member.phone || null,
+                    start_date: member.startDate || null,
+                    salary: member.salary ? parseFloat(member.salary) : null,
+                    active: member.active !== false
+                }));
+
+                log('testOutput', 'Using upsert operation (same as app)...');
+                
+                const { data, error } = await supabase
+                    .from('staff')
+                    .upsert(staffRecords, { 
+                        onConflict: 'staff_id',
+                        ignoreDuplicates: false 
+                    })
+                    .select();
+                
+                if (error) throw error;
+                
+                log('testOutput', `App simulation successful! Saved ${data.length} record(s)`, 'success');
+                log('testOutput', `Record: ${JSON.stringify(data[0], null, 2)}`);
+                
+                // Refresh stats
+                refreshStats();
+                
+            } catch (error) {
+                log('testOutput', `App simulation failed: ${error.message}`, 'error');
+                if (error.details) {
+                    log('testOutput', `Error details: ${error.details}`, 'error');
+                }
+            }
+        }
+
+        async function clearTestData() {
+            if (!supabase) {
+                log('testOutput', 'Please test connection first', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to clear all test data? This will remove all records with TEST prefixes.')) {
+                return;
+            }
+
+            try {
+                clearOutput('testOutput');
+                log('testOutput', 'Clearing test data...');
+                
+                // Remove test staff
+                const { error: staffError } = await supabase
+                    .from('staff')
+                    .delete()
+                    .like('staff_id', `${TEST_PREFIX}%`);
+                
+                if (staffError) throw staffError;
+                
+                // Remove test logs
+                const { error: logError } = await supabase
+                    .from('activity_logs')
+                    .delete()
+                    .like('staff_id', `${TEST_PREFIX}%`);
+                
+                if (logError) throw logError;
+                
+                // Also remove app simulation data
+                const { error: appSimError } = await supabase
+                    .from('staff')
+                    .delete()
+                    .like('staff_id', 'APP_SIM_%');
+                
+                if (appSimError) throw appSimError;
+                
+                log('testOutput', 'Test data cleared successfully', 'success');
+                
+                // Refresh stats
+                refreshStats();
+                
+            } catch (error) {
+                log('testOutput', `Failed to clear test data: ${error.message}`, 'error');
+            }
+        }
+
+        function openConsole() {
+            alert('To open the browser console:\n\n1. Right-click on this page\n2. Select "Inspect" or "Inspect Element"\n3. Click on the "Console" tab\n\nThis will show you detailed logs from the app operations.');
+        }
+
+        // Auto-load credentials on page load
+        window.addEventListener('load', () => {
+            loadCredentials();
+        });
+    </script>
+</body>
+</html>

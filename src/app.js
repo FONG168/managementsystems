@@ -557,24 +557,34 @@ class App {
     }
 
     // Update logs in the app state with enhanced sync
-    updateLogsWithSync(logs, changeInfo = null) {
+    async updateLogsWithSync(logs, changeInfo = null) {
         if (logs) {
             this.state.logs = logs;
             this.state._lastModified = Date.now();
             
             // Enhanced sync: Save immediately and notify other browsers
-            this.saveStateWithSync(changeInfo);
+            try {
+                await this.saveStateWithSync(changeInfo);
+            } catch (error) {
+                console.error('❌ Failed to sync logs:', error);
+                this.showToast('Failed to save activity logs', 'error');
+            }
         }
     }
 
     // Update staff in the app state with enhanced sync
-    updateStaffWithSync(staff, changeInfo = null) {
+    async updateStaffWithSync(staff, changeInfo = null) {
         if (staff) {
             this.state.staff = staff;
             this.state._lastModified = Date.now();
             
             // Enhanced sync: Save immediately and notify other browsers
-            this.saveStateWithSync(changeInfo);
+            try {
+                await this.saveStateWithSync(changeInfo);
+            } catch (error) {
+                console.error('❌ Failed to sync staff:', error);
+                this.showToast('Failed to save staff data', 'error');
+            }
         }
     }
 
@@ -593,13 +603,17 @@ class App {
             };
             
             // Save to database/API first if available
-            if (this.database.isConfigured && !this.database.useLocalStorage) {
+            if (this.database.isConfigured) {
                 try {
+                    console.log('🔄 Saving to Supabase database...');
                     await Promise.all([
                         this.database.saveStaff(this.state.staff),
-                        this.database.saveLogs(this.state.logs),
-                        this.database.saveSettings(this.state.settings)
+                        this.database.saveLogs(this.state.logs)
+                        // Note: Settings are saved to localStorage only
                     ]);
+                    
+                    // Also save settings to localStorage
+                    localStorage.setItem('employeeManagerSettings', JSON.stringify(this.state.settings));
                     
                     // Broadcast change to other browsers
                     this.broadcastDataChange(changeInfo);
