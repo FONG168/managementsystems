@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Debug Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { margin: 5px; padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .output { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; white-space: pre-wrap; font-family: monospace; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Supabase Database Debug Tool</h1>
+    
+    <div class="test-section">
+        <h3>📡 Connection Test</h3>
+        <input type="text" id="supabaseUrl" placeholder="Supabase URL" style="width: 300px; margin: 5px;">
+        <input type="text" id="supabaseKey" placeholder="Supabase Anon Key" style="width: 300px; margin: 5px;">
+        <br>
+        <button onclick="testConnection()">Test Connection</button>
+        <button onclick="fillCredentials()">Fill Pre-stored Credentials</button>
+        <div id="connectionOutput" class="output"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Staff Table Test</h3>
+        <button onclick="testStaffTable()">Test Staff Table</button>
+        <button onclick="addTestStaff()">Add Test Staff</button>
+        <button onclick="viewStaffData()">View All Staff</button>
+        <button onclick="clearStaffData()">Clear Staff Data</button>
+        <div id="staffOutput" class="output"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Activity Logs Test</h3>
+        <button onclick="testLogsTable()">Test Logs Table</button>
+        <button onclick="addTestLogs()">Add Test Logs</button>
+        <button onclick="viewLogsData()">View All Logs</button>
+        <button onclick="clearLogsData()">Clear Logs Data</button>
+        <div id="logsOutput" class="output"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 Full Integration Test</h3>
+        <button onclick="runFullTest()">Run Complete Test</button>
+        <div id="fullTestOutput" class="output"></div>
+    </div>
+
+    <script>
+        let supabase = null;
+
+        function log(elementId, message, type = 'info') {
+            const output = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            output.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function clearOutput(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        function fillCredentials() {
+            // Get credentials from localStorage if they exist
+            const url = localStorage.getItem('supabase_url');
+            const key = localStorage.getItem('supabase_key');
+            
+            if (url && key) {
+                document.getElementById('supabaseUrl').value = url;
+                document.getElementById('supabaseKey').value = key;
+                log('connectionOutput', '✅ Filled credentials from localStorage', 'success');
+            } else {
+                log('connectionOutput', '⚠️ No stored credentials found', 'error');
+            }
+        }
+
+        async function testConnection() {
+            clearOutput('connectionOutput');
+            
+            const url = document.getElementById('supabaseUrl').value;
+            const key = document.getElementById('supabaseKey').value;
+            
+            if (!url || !key) {
+                log('connectionOutput', '❌ Please enter both URL and key', 'error');
+                return;
+            }
+
+            try {
+                log('connectionOutput', '🔍 Creating Supabase client...');
+                supabase = window.supabase.createClient(url, key);
+                
+                log('connectionOutput', '📡 Testing connection to staff table...');
+                const { data, error, count } = await supabase
+                    .from('staff')
+                    .select('*', { count: 'exact' });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                log('connectionOutput', `✅ Connection successful! Found ${count} staff records`, 'success');
+                log('connectionOutput', `📊 Sample data: ${JSON.stringify(data?.slice(0, 2), null, 2)}`);
+                
+                // Test logs table too
+                log('connectionOutput', '📝 Testing connection to activity_logs table...');
+                const { data: logsData, error: logsError, count: logsCount } = await supabase
+                    .from('activity_logs')
+                    .select('*', { count: 'exact' });
+                
+                if (logsError) {
+                    throw logsError;
+                }
+                
+                log('connectionOutput', `✅ Logs table accessible! Found ${logsCount} log records`, 'success');
+                
+            } catch (error) {
+                log('connectionOutput', `❌ Connection failed: ${error.message}`, 'error');
+                log('connectionOutput', `📋 Full error: ${JSON.stringify(error, null, 2)}`);
+            }
+        }
+
+        async function testStaffTable() {
+            clearOutput('staffOutput');
+            
+            if (!supabase) {
+                log('staffOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                log('staffOutput', '🔍 Testing staff table structure...');
+                
+                // Test select
+                const { data, error } = await supabase
+                    .from('staff')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) throw error;
+                
+                log('staffOutput', '✅ Staff table accessible', 'success');
+                log('staffOutput', `📊 Sample record: ${JSON.stringify(data[0], null, 2)}`);
+                
+            } catch (error) {
+                log('staffOutput', `❌ Staff table error: ${error.message}`, 'error');
+            }
+        }
+
+        async function addTestStaff() {
+            clearOutput('staffOutput');
+            
+            if (!supabase) {
+                log('staffOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                const testStaff = {
+                    staff_id: 'TEST-' + Date.now(),
+                    name: 'Test Staff Member',
+                    department: 'IT',
+                    position: 'Developer',
+                    email: 'test@example.com',
+                    phone: '123-456-7890',
+                    start_date: new Date().toISOString().split('T')[0],
+                    salary: 50000,
+                    active: true
+                };
+
+                log('staffOutput', '➕ Adding test staff member...');
+                
+                const { data, error } = await supabase
+                    .from('staff')
+                    .insert([testStaff])
+                    .select();
+                
+                if (error) throw error;
+                
+                log('staffOutput', '✅ Test staff added successfully', 'success');
+                log('staffOutput', `📊 Added: ${JSON.stringify(data[0], null, 2)}`);
+                
+            } catch (error) {
+                log('staffOutput', `❌ Failed to add test staff: ${error.message}`, 'error');
+            }
+        }
+
+        async function viewStaffData() {
+            clearOutput('staffOutput');
+            
+            if (!supabase) {
+                log('staffOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                log('staffOutput', '📊 Fetching all staff data...');
+                
+                const { data, error, count } = await supabase
+                    .from('staff')
+                    .select('*', { count: 'exact' })
+                    .order('name');
+                
+                if (error) throw error;
+                
+                log('staffOutput', `✅ Found ${count} staff members`, 'success');
+                
+                if (data && data.length > 0) {
+                    data.forEach((staff, index) => {
+                        log('staffOutput', `${index + 1}. ${staff.name} (${staff.staff_id}) - ${staff.department || 'No Dept'}`);
+                    });
+                } else {
+                    log('staffOutput', '📋 No staff data found');
+                }
+                
+            } catch (error) {
+                log('staffOutput', `❌ Failed to fetch staff data: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearStaffData() {
+            if (!confirm('Are you sure you want to clear all staff data?')) return;
+            
+            clearOutput('staffOutput');
+            
+            if (!supabase) {
+                log('staffOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                log('staffOutput', '🗑️ Clearing all staff data...');
+                
+                const { error } = await supabase
+                    .from('staff')
+                    .delete()
+                    .neq('id', 0);
+                
+                if (error) throw error;
+                
+                log('staffOutput', '✅ All staff data cleared', 'success');
+                
+            } catch (error) {
+                log('staffOutput', `❌ Failed to clear staff data: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogsTable() {
+            clearOutput('logsOutput');
+            
+            if (!supabase) {
+                log('logsOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                log('logsOutput', '🔍 Testing activity_logs table structure...');
+                
+                // Test select
+                const { data, error } = await supabase
+                    .from('activity_logs')
+                    .select('*')
+                    .limit(1);
+                
+                if (error) throw error;
+                
+                log('logsOutput', '✅ Activity logs table accessible', 'success');
+                if (data && data.length > 0) {
+                    log('logsOutput', `📊 Sample record: ${JSON.stringify(data[0], null, 2)}`);
+                } else {
+                    log('logsOutput', '📋 No log records found');
+                }
+                
+            } catch (error) {
+                log('logsOutput', `❌ Activity logs table error: ${error.message}`, 'error');
+            }
+        }
+
+        async function addTestLogs() {
+            clearOutput('logsOutput');
+            
+            if (!supabase) {
+                log('logsOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                const testLog = {
+                    month_key: '2024-01',
+                    staff_id: 'TEST-STAFF',
+                    day: 15,
+                    activity: 'office',
+                    count: 8
+                };
+
+                log('logsOutput', '➕ Adding test activity log...');
+                
+                const { data, error } = await supabase
+                    .from('activity_logs')
+                    .insert([testLog])
+                    .select();
+                
+                if (error) throw error;
+                
+                log('logsOutput', '✅ Test log added successfully', 'success');
+                log('logsOutput', `📊 Added: ${JSON.stringify(data[0], null, 2)}`);
+                
+            } catch (error) {
+                log('logsOutput', `❌ Failed to add test log: ${error.message}`, 'error');
+            }
+        }
+
+        async function viewLogsData() {
+            clearOutput('logsOutput');
+            
+            if (!supabase) {
+                log('logsOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                log('logsOutput', '📊 Fetching all activity logs...');
+                
+                const { data, error, count } = await supabase
+                    .from('activity_logs')
+                    .select('*', { count: 'exact' })
+                    .order('month_key, staff_id, day');
+                
+                if (error) throw error;
+                
+                log('logsOutput', `✅ Found ${count} activity log entries`, 'success');
+                
+                if (data && data.length > 0) {
+                    data.slice(0, 10).forEach((log, index) => {
+                        log('logsOutput', `${index + 1}. ${log.month_key} - ${log.staff_id} - Day ${log.day}: ${log.activity} (${log.count})`);
+                    });
+                    if (data.length > 10) {
+                        log('logsOutput', `... and ${data.length - 10} more entries`);
+                    }
+                } else {
+                    log('logsOutput', '📋 No activity log data found');
+                }
+                
+            } catch (error) {
+                log('logsOutput', `❌ Failed to fetch activity logs: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearLogsData() {
+            if (!confirm('Are you sure you want to clear all activity logs?')) return;
+            
+            clearOutput('logsOutput');
+            
+            if (!supabase) {
+                log('logsOutput', '❌ Please test connection first', 'error');
+                return;
+            }
+
+            try {
+                log('logsOutput', '🗑️ Clearing all activity logs...');
+                
+                const { error } = await supabase
+                    .from('activity_logs')
+                    .delete()
+                    .neq('id', 0);
+                
+                if (error) throw error;
+                
+                log('logsOutput', '✅ All activity logs cleared', 'success');
+                
+            } catch (error) {
+                log('logsOutput', `❌ Failed to clear activity logs: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFullTest() {
+            clearOutput('fullTestOutput');
+            
+            const url = document.getElementById('supabaseUrl').value;
+            const key = document.getElementById('supabaseKey').value;
+            
+            if (!url || !key) {
+                log('fullTestOutput', '❌ Please enter both URL and key', 'error');
+                return;
+            }
+
+            try {
+                log('fullTestOutput', '🚀 Starting full integration test...');
+                
+                // Step 1: Connect
+                log('fullTestOutput', '1️⃣ Testing connection...');
+                supabase = window.supabase.createClient(url, key);
+                
+                // Step 2: Test staff operations
+                log('fullTestOutput', '2️⃣ Testing staff operations...');
+                
+                const testStaffMember = {
+                    staff_id: 'FULL-TEST-' + Date.now(),
+                    name: 'Full Test Staff',
+                    department: 'Testing',
+                    position: 'Tester',
+                    email: 'fulltest@example.com',
+                    phone: '999-888-7777',
+                    start_date: new Date().toISOString().split('T')[0],
+                    salary: 60000,
+                    active: true
+                };
+                
+                // Add staff
+                const { data: addedStaff, error: addError } = await supabase
+                    .from('staff')
+                    .insert([testStaffMember])
+                    .select();
+                
+                if (addError) throw new Error(`Staff add failed: ${addError.message}`);
+                log('fullTestOutput', `✅ Staff added: ${addedStaff[0].name}`, 'success');
+                
+                // Read staff back
+                const { data: staffData, error: readError } = await supabase
+                    .from('staff')
+                    .select('*')
+                    .eq('staff_id', testStaffMember.staff_id);
+                
+                if (readError) throw new Error(`Staff read failed: ${readError.message}`);
+                log('fullTestOutput', `✅ Staff read back successfully: ${staffData.length} record(s)`, 'success');
+                
+                // Step 3: Test activity logs
+                log('fullTestOutput', '3️⃣ Testing activity logs...');
+                
+                const testLogEntry = {
+                    month_key: '2024-01',
+                    staff_id: testStaffMember.staff_id,
+                    day: 20,
+                    activity: 'testing',
+                    count: 10
+                };
+                
+                // Add log
+                const { data: addedLog, error: logAddError } = await supabase
+                    .from('activity_logs')
+                    .insert([testLogEntry])
+                    .select();
+                
+                if (logAddError) throw new Error(`Log add failed: ${logAddError.message}`);
+                log('fullTestOutput', `✅ Activity log added: ${addedLog[0].activity}`, 'success');
+                
+                // Read log back
+                const { data: logData, error: logReadError } = await supabase
+                    .from('activity_logs')
+                    .select('*')
+                    .eq('staff_id', testStaffMember.staff_id);
+                
+                if (logReadError) throw new Error(`Log read failed: ${logReadError.message}`);
+                log('fullTestOutput', `✅ Activity log read back successfully: ${logData.length} record(s)`, 'success');
+                
+                // Step 4: Test bulk operations
+                log('fullTestOutput', '4️⃣ Testing bulk operations...');
+                
+                // Try to simulate what the app does
+                const multipleStaff = [
+                    { ...testStaffMember, staff_id: 'BULK-1-' + Date.now(), name: 'Bulk Test 1' },
+                    { ...testStaffMember, staff_id: 'BULK-2-' + Date.now(), name: 'Bulk Test 2' }
+                ];
+                
+                const { data: bulkStaff, error: bulkError } = await supabase
+                    .from('staff')
+                    .insert(multipleStaff)
+                    .select();
+                
+                if (bulkError) throw new Error(`Bulk insert failed: ${bulkError.message}`);
+                log('fullTestOutput', `✅ Bulk staff insert successful: ${bulkStaff.length} records`, 'success');
+                
+                log('fullTestOutput', '🎉 Full integration test completed successfully!', 'success');
+                log('fullTestOutput', '✅ Your Supabase setup is working correctly!', 'success');
+                
+            } catch (error) {
+                log('fullTestOutput', `❌ Full test failed: ${error.message}`, 'error');
+                log('fullTestOutput', `📋 Details: ${JSON.stringify(error, null, 2)}`);
+            }
+        }
+
+        // Auto-fill credentials on page load
+        window.addEventListener('load', () => {
+            fillCredentials();
+        });
+    </script>
+</body>
+</html>

@@ -494,19 +494,35 @@ class App {
     async saveState() {
         try {
             console.log('💾 saveState: Starting state save...');
+            console.log('📊 Current state:', {
+                staffCount: this.state.staff?.length || 0,
+                logMonths: Object.keys(this.state.logs || {}).length,
+                databaseConfigured: this.database.isConfigured
+            });
             
             // Only save to database if configured
             if (this.database.isConfigured) {
                 try {
-                    await Promise.all([
+                    console.log('🌐 Saving to database...');
+                    const savePromises = [
                         this.database.saveStaff(this.state.staff),
                         this.database.saveLogs(this.state.logs)
-                    ]);
-                    console.log('✅ Data saved to database');
+                    ];
+                    
+                    const results = await Promise.allSettled(savePromises);
+                    
+                    // Check if any saves failed
+                    const failedSaves = results.filter(result => result.status === 'rejected');
+                    if (failedSaves.length > 0) {
+                        console.error('❌ Some saves failed:', failedSaves);
+                        throw new Error(`Failed to save: ${failedSaves.map(f => f.reason.message).join(', ')}`);
+                    }
+                    
+                    console.log('✅ All data saved to database successfully');
                     this.showToast('Data saved successfully', 'success');
                 } catch (error) {
                     console.error('❌ Failed to save to database:', error);
-                    this.showToast('Failed to save data to database', 'error');
+                    this.showToast(`Failed to save data: ${error.message}`, 'error');
                     throw error;
                 }
             } else {
@@ -518,24 +534,25 @@ class App {
             localStorage.setItem('employeeManagerSettings', JSON.stringify(this.state.settings));
             
         } catch (error) {
-            console.error('Failed to save state:', error);
+            console.error('❌ saveState failed:', error);
             this.showToast('Failed to save data', 'error');
+            throw error; // Re-throw to allow caller to handle
         }
     }
 
     // Update staff in the app state
-    updateStaff(staff) {
+    async updateStaff(staff) {
         if (staff) {
             this.state.staff = staff;
-            this.saveState(); // Save the updated state
+            await this.saveState(); // Save the updated state
         }
     }
 
     // Update logs in the app state
-    updateLogs(logs) {
+    async updateLogs(logs) {
         if (logs) {
             this.state.logs = logs;
-            this.saveState(); // Save the updated state
+            await this.saveState(); // Save the updated state
         }
     }
 

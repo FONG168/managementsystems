@@ -420,29 +420,46 @@ export class StaffManager {
         document.getElementById('staff-active').checked = staff.active;
     }
 
-    saveStaff() {
+    async saveStaff() {
         if (!this.validateForm()) return;
 
-        const formData = this.getFormData();
-        const state = this.app.getState();
-        const existingIndex = state.staff.findIndex(s => s.id === formData.id);
+        try {
+            const formData = this.getFormData();
+            const state = this.app.getState();
+            const existingIndex = state.staff.findIndex(s => s.id === formData.id);
 
-        if (existingIndex >= 0) {
-            state.staff[existingIndex] = formData;
-            this.app.showToast('Staff member updated successfully', 'success');
-        } else {
-            // Check for duplicate ID
-            if (state.staff.some(s => s.id === formData.id)) {
-                this.showFormError('id-error', 'Employee ID already exists');
-                return;
+            console.log('💾 Saving staff member:', formData);
+
+            if (existingIndex >= 0) {
+                state.staff[existingIndex] = formData;
+                console.log('✏️ Updated existing staff member at index:', existingIndex);
+            } else {
+                // Check for duplicate ID
+                if (state.staff.some(s => s.id === formData.id)) {
+                    this.showFormError('id-error', 'Employee ID already exists');
+                    return;
+                }
+                state.staff.push(formData);
+                console.log('➕ Added new staff member, total count:', state.staff.length);
             }
-            state.staff.push(formData);
-            this.app.showToast('Staff member added successfully', 'success');
-        }
 
-        this.app.updateStaff(state.staff);
-        this.closeStaffModal();
-        this.renderStaffTable();
+            // Save to database
+            console.log('🔄 Triggering database save...');
+            await this.app.updateStaff(state.staff);
+            
+            const isUpdate = existingIndex >= 0;
+            this.app.showToast(
+                isUpdate ? 'Staff member updated successfully' : 'Staff member added successfully', 
+                'success'
+            );
+            
+            this.closeStaffModal();
+            this.renderStaffTable();
+            
+        } catch (error) {
+            console.error('❌ Failed to save staff member:', error);
+            this.app.showToast(`Failed to save staff member: ${error.message}`, 'error');
+        }
     }
 
     getFormData() {

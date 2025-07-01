@@ -96,40 +96,57 @@ class DatabaseService {
         return this.connectionStatus;
     }
 
-    // Save staff data
+    // Save staff data using upsert for better reliability
     async saveStaff(staff) {
         if (!this.isConfigured) {
             throw new Error('Database not configured. Please connect to database first.');
         }
 
         try {
-            // Clear existing staff data
-            await this.supabase.from('staff').delete().neq('id', 0);
+            console.log(`🔄 Saving ${staff?.length || 0} staff records to database...`);
             
-            // Insert new staff data
-            if (staff && staff.length > 0) {
-                const { error } = await this.supabase
-                    .from('staff')
-                    .insert(staff.map(member => ({
-                        staff_id: member.id,
-                        name: member.name,
-                        department: member.department || null,
-                        position: member.position || null,
-                        email: member.email || null,
-                        phone: member.phone || null,
-                        start_date: member.startDate || null,
-                        salary: member.salary || null,
-                        active: member.active !== false
-                    })));
-                
-                if (error) throw error;
+            if (!staff || staff.length === 0) {
+                console.log('⚠️ No staff data to save');
+                return true;
+            }
+
+            // Convert app format to database format
+            const staffRecords = staff.map(member => ({
+                staff_id: member.id,
+                name: member.name,
+                department: member.department || null,
+                position: member.position || null,
+                email: member.email || null,
+                phone: member.phone || null,
+                start_date: member.startDate || null,
+                salary: member.salary ? parseFloat(member.salary) : null,
+                active: member.active !== false
+            }));
+
+            console.log('📊 Staff records to save:', staffRecords);
+
+            // Use upsert to handle both inserts and updates
+            const { data, error } = await this.supabase
+                .from('staff')
+                .upsert(staffRecords, { 
+                    onConflict: 'staff_id',
+                    ignoreDuplicates: false 
+                })
+                .select();
+            
+            if (error) {
+                console.error('❌ Supabase upsert error:', error);
+                throw error;
             }
             
             this.lastSyncTime = new Date().toISOString();
-            console.log('✅ Staff data saved to database');
+            console.log(`✅ Successfully saved ${data?.length || staffRecords.length} staff records to database`);
+            console.log('📋 Saved records:', data);
+            
             return true;
         } catch (error) {
             console.error('❌ Failed to save staff data:', error);
+            console.error('❌ Error details:', error.message, error.details, error.hint);
             this.connectionStatus = 'error';
             throw error;
         }
@@ -171,15 +188,19 @@ class DatabaseService {
         }
     }
 
-    // Save activity logs
+    // Save activity logs using upsert for better reliability
     async saveLogs(logs) {
         if (!this.isConfigured) {
             throw new Error('Database not configured. Please connect to database first.');
         }
 
         try {
-            // Clear existing logs
-            await this.supabase.from('activity_logs').delete().neq('id', 0);
+            console.log('🔄 Saving activity logs to database...');
+            
+            if (!logs || Object.keys(logs).length === 0) {
+                console.log('⚠️ No log data to save');
+                return true;
+            }
             
             // Convert logs to database format
             const logEntries = [];
@@ -192,27 +213,49 @@ class DatabaseService {
                                 staff_id: staffId,
                                 day: parseInt(day),
                                 activity: activity,
-                                count: count
+                                count: parseInt(count) || 0
                             });
                         }
                     }
                 }
             }
             
-            // Insert new logs
-            if (logEntries.length > 0) {
-                const { error } = await this.supabase
-                    .from('activity_logs')
-                    .insert(logEntries);
+            console.log(`📊 Converting ${Object.keys(logs).length} month(s) of logs to ${logEntries.length} database entries`);
+            
+            if (logEntries.length === 0) {
+                console.log('⚠️ No log entries to save after conversion');
+                return true;
+            }
+
+            // Delete existing logs and insert new ones (logs are frequently updated in bulk)
+            console.log('🗑️ Clearing existing logs...');
+            const { error: deleteError } = await this.supabase
+                .from('activity_logs')
+                .delete()
+                .neq('id', 0);
+            
+            if (deleteError) {
+                console.error('❌ Failed to clear existing logs:', deleteError);
+                throw deleteError;
+            }
+            
+            console.log('➕ Inserting new log entries...');
+            const { data, error } = await this.supabase
+                .from('activity_logs')
+                .insert(logEntries)
+                .select();
                 
-                if (error) throw error;
+            if (error) {
+                console.error('❌ Supabase logs insert error:', error);
+                throw error;
             }
             
             this.lastSyncTime = new Date().toISOString();
-            console.log(`✅ Saved ${logEntries.length} activity log entries to database`);
+            console.log(`✅ Successfully saved ${data?.length || logEntries.length} activity log entries to database`);
             return true;
         } catch (error) {
             console.error('❌ Failed to save activity logs:', error);
+            console.error('❌ Error details:', error.message, error.details, error.hint);
             this.connectionStatus = 'error';
             throw error;
         }
